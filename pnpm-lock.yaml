@@ -132,6 +132,9 @@ importers:
 
   shared/ui:
     dependencies:
+      '@vera/types':
+        specifier: workspace:*
+        version: link:../types
       '@vera/utils':
         specifier: workspace:*
         version: link:../utils

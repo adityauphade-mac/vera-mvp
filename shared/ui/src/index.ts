@@ -1,2 +1,9 @@
-// Vera UI — shadcn components + custom Vera components. Phase 3 fills this in.
 export { cn } from './lib/cn';
+export * from './components/Card';
+export * from './components/Button';
+export * from './components/HeatScoreBadge';
+export * from './components/AgingChip';
+export * from './components/AnomalyTag';
+export * from './components/MissingStepTag';
+export * from './components/VeraQuote';
+export * from './components/MetricTile';
