@@ -9,13 +9,17 @@
   "scripts": {
     "preprocess": "tsx scripts/preprocess.ts",
     "dev": "turbo run dev",
-    "build": "turbo run build",
+    "build": "pnpm preprocess && turbo run build",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
-    "test:e2e": "pnpm --filter @vera/web build && playwright test",
-    "test:e2e:ui": "pnpm --filter @vera/web build && playwright test --ui",
+    "test:e2e": "pnpm preprocess && pnpm --filter @vera/web build && playwright test",
+    "test:e2e:ui": "pnpm preprocess && pnpm --filter @vera/web build && playwright test --ui",
     "format": "prettier --write \"**/*.{ts,tsx,md,json}\"",
     "prepare": "husky"
+  },
+  "dependencies": {
+    "@vera/domain": "workspace:*",
+    "@vera/types": "workspace:*"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.1",

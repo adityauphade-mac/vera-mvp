@@ -7,6 +7,13 @@ settings:
 importers:
 
   .:
+    dependencies:
+      '@vera/domain':
+        specifier: workspace:*
+        version: link:shared/domain
+      '@vera/types':
+        specifier: workspace:*
+        version: link:shared/types
     devDependencies:
       '@playwright/test':
         specifier: ^1.49.1

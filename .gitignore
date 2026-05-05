@@ -12,6 +12,7 @@ out
 # data
 data/jobs_dedup.jsonl
 data/generated.json
+apps/web/data/generated.json
 
 # env
 .env
