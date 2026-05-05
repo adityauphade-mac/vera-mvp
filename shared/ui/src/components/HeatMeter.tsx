@@ -22,21 +22,21 @@ const BAND_FILL: Record<HeatBand, string> = {
   critical: 'bg-heat-critical',
 };
 
+const BAND_TINT: Record<HeatBand, string> = {
+  cool: 'bg-heat-cool/15',
+  warm: 'bg-heat-warm/15',
+  hot: 'bg-heat-hot/15',
+  critical: 'bg-heat-critical/15',
+};
+
 export interface HeatMeterProps {
   score: number;
   band: HeatBand;
   breakdown?: HeatBreakdown;
   className?: string;
-  /** Compact = single-row inline meter for table rows. */
   variant?: 'default' | 'compact';
 }
 
-/**
- * A horizontal heat track. The whole track is a soft gradient from sage → brick;
- * a filled bar in the band's color shows the current score; a marker dot sits at
- * the current position. Colour-blind-friendly because the score number is always
- * visible alongside.
- */
 export function HeatMeter({
   score,
   band,
@@ -55,70 +55,60 @@ export function HeatMeter({
 
   if (variant === 'compact') {
     return (
-      <div
-        title={tooltip}
-        className={cn('flex w-44 flex-col gap-1', className)}
-      >
-        <div className="flex items-baseline justify-between">
-          <span className="text-text-muted text-[0.65rem] tracking-wider uppercase">
-            Heat
-          </span>
-          <span className={cn('text-sm font-medium tabular-nums', BAND_TEXT[band])}>
-            {score}
-            <span className="text-text-muted ml-1 text-[0.65rem] uppercase">
-              {BAND_LABEL[band]}
-            </span>
-          </span>
+      <div title={tooltip} className={cn('inline-flex items-center gap-2', className)}>
+        <span className={cn('text-sm font-semibold tabular-nums', BAND_TEXT[band])}>
+          {score}
+        </span>
+        <div className="bg-bg-base relative h-1.5 w-24 overflow-hidden rounded-full">
+          <div
+            className={cn('absolute inset-y-0 left-0 rounded-full', BAND_FILL[band])}
+            style={{ width: `${clamped}%` }}
+          />
         </div>
-        <Track band={band} clamped={clamped} />
+        <span
+          className={cn(
+            'text-[0.6rem] font-medium tracking-wider uppercase',
+            BAND_TEXT[band],
+          )}
+        >
+          {BAND_LABEL[band]}
+        </span>
       </div>
     );
   }
 
   return (
-    <div title={tooltip} className={cn('flex w-56 flex-col gap-1.5', className)}>
+    <div title={tooltip} className={cn('w-full max-w-sm space-y-2', className)}>
       <div className="flex items-baseline justify-between">
-        <span className="text-text-muted text-[0.65rem] tracking-wider uppercase">Heat</span>
-        <span className={cn('text-sm font-medium tabular-nums', BAND_TEXT[band])}>
-          {score}
-          <span className="text-text-muted ml-1.5 text-[0.65rem] tracking-wider uppercase">
-            {BAND_LABEL[band]}
-          </span>
+        <span className="text-text-muted text-[0.65rem] font-medium tracking-[0.18em] uppercase">
+          Heat score
         </span>
+        <div className="flex items-baseline gap-1">
+          <span className={cn('font-display text-3xl tabular-nums', BAND_TEXT[band])}>
+            {score}
+          </span>
+          <span className="text-text-muted text-xs">/ 100</span>
+        </div>
       </div>
-      <Track band={band} clamped={clamped} />
-      <div className="text-text-muted flex justify-between text-[0.6rem] tracking-wider uppercase">
-        <span>Cool</span>
-        <span>Critical</span>
+      <div className={cn('relative h-2.5 overflow-hidden rounded-full', BAND_TINT[band])}>
+        <div
+          className={cn('absolute inset-y-0 left-0 rounded-full', BAND_FILL[band])}
+          style={{ width: `${clamped}%` }}
+        />
       </div>
-    </div>
-  );
-}
-
-function Track({ band, clamped }: { band: HeatBand; clamped: number }) {
-  return (
-    <div className="bg-bg-base border-border relative h-1.5 overflow-hidden rounded-full border">
-      {/* gradient base */}
-      <div
-        className="absolute inset-0 opacity-25"
-        style={{
-          background:
-            'linear-gradient(to right, var(--color-heat-cool), var(--color-heat-warm), var(--color-heat-hot), var(--color-heat-critical))',
-        }}
-      />
-      {/* filled portion in band color */}
-      <div
-        className={cn('absolute inset-y-0 left-0 rounded-full', BAND_FILL[band])}
-        style={{ width: `${clamped}%` }}
-      />
-      {/* marker dot */}
-      <div
-        className={cn(
-          'absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-white',
-          BAND_FILL[band],
-        )}
-        style={{ left: `${clamped}%` }}
-      />
+      <div className="flex items-center justify-between">
+        <span
+          className={cn(
+            'text-[0.65rem] font-medium tracking-[0.18em] uppercase',
+            BAND_TEXT[band],
+          )}
+        >
+          {BAND_LABEL[band]}
+        </span>
+        {breakdown ? (
+          <span className="text-text-muted text-[0.65rem]">hover for breakdown</span>
+        ) : null}
+      </div>
     </div>
   );
 }

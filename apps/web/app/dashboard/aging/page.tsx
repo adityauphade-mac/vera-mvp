@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { AnomalyTag, BarChart, Card, MetricTile, VeraQuote } from '@vera/ui';
+import { AlertTriangle } from 'lucide-react';
+import { BarChart, Card, MetricTile, VeraQuote } from '@vera/ui';
 import { formatUSD } from '@vera/utils';
 import type { ARJob, AgingBucket, AnomalyFlag } from '@vera/types';
 import { getData } from '@/lib/data';
@@ -95,6 +96,7 @@ export default async function AgingPage({
         </VeraQuote>
       </header>
 
+      {/* Bucket quick filters */}
       <section className="grid grid-cols-2 gap-4 lg:grid-cols-4 vera-rise-delay-1">
         {BUCKET_ORDER.map((b) => (
           <BucketTile
@@ -108,31 +110,18 @@ export default async function AgingPage({
         ))}
       </section>
 
-      {/* Bucket chart + clear filter */}
-      <section className="grid grid-cols-1 gap-6 lg:grid-cols-[3fr_2fr] vera-rise-delay-2">
-        <div className="space-y-3">
-          <div className="flex items-baseline justify-between">
+      {/* Distribution chart row */}
+      <section className="vera-rise-delay-2">
+        <Card>
+          <div className="flex flex-wrap items-baseline justify-between gap-3">
             <h2 className="text-text-secondary text-sm tracking-[0.2em] uppercase">
-              By job — {visible.length} {visible.length === 1 ? 'row' : 'rows'}
+              Past-terms distribution
             </h2>
-            {(bucketFilter || params.rep) && (
-              <Link
-                href="/dashboard/aging"
-                scroll={false}
-                className="text-accent text-sm hover:underline"
-              >
-                Clear filters
-              </Link>
-            )}
+            <p className="text-text-muted text-xs">
+              Each bar = jobs in that bucket. Hint = total dollars in the bucket.
+            </p>
           </div>
-          <AgingTable jobs={visible} />
-        </div>
-
-        <aside className="space-y-3">
-          <h2 className="text-text-secondary text-sm tracking-[0.2em] uppercase">
-            Past-terms distribution
-          </h2>
-          <Card>
+          <div className="mt-5">
             <BarChart
               data={BUCKET_ORDER.map((b) => ({
                 label: BUCKET_LABEL[b],
@@ -143,40 +132,64 @@ export default async function AgingPage({
               }))}
               format={(n) => `${n} ${n === 1 ? 'job' : 'jobs'}`}
             />
-          </Card>
+          </div>
+        </Card>
+      </section>
 
-          <h2 className="text-text-secondary mt-6 text-sm tracking-[0.2em] uppercase">
-            What looks strange
+      {/* Anomaly summary — horizontal chips */}
+      <section className="space-y-3 vera-rise-delay-3">
+        <h2 className="text-text-secondary text-sm tracking-[0.2em] uppercase">
+          What looks strange
+        </h2>
+        {anomalyEntries.length === 0 ? (
+          <Card>
+            <p className="text-text-secondary">
+              Nothing tripped today. I&apos;ll keep watching.
+            </p>
+          </Card>
+        ) : (
+          <Card>
+            <div className="flex flex-wrap gap-2">
+              {anomalyEntries.map(([flag, list]) => (
+                <span
+                  key={flag}
+                  title={`${ANOMALY_LABELS[flag as AnomalyFlag]} — ${list.length} ${
+                    list.length === 1 ? 'job' : 'jobs'
+                  }`}
+                  className="border-border bg-bg-base inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs"
+                >
+                  <AlertTriangle className="text-heat-hot h-3 w-3 shrink-0" aria-hidden="true" />
+                  <span className="text-text-primary">
+                    {ANOMALY_LABELS[flag as AnomalyFlag]}
+                  </span>
+                  <span className="text-text-muted">·</span>
+                  <span className="text-text-primary tabular-nums font-semibold">
+                    {list.length}
+                  </span>
+                </span>
+              ))}
+            </div>
+          </Card>
+        )}
+      </section>
+
+      {/* Table */}
+      <section className="space-y-3 vera-rise-delay-3">
+        <div className="flex items-baseline justify-between">
+          <h2 className="text-text-secondary text-sm tracking-[0.2em] uppercase">
+            By job — {visible.length} {visible.length === 1 ? 'row' : 'rows'}
           </h2>
-          {anomalyEntries.length === 0 ? (
-            <Card>
-              <p className="text-text-secondary">
-                Nothing tripped today. I&apos;ll keep watching.
-              </p>
-            </Card>
-          ) : (
-            <Card>
-              <ul className="space-y-3">
-                {anomalyEntries.map(([flag, list]) => (
-                  <li
-                    key={flag}
-                    className="border-border flex items-start justify-between gap-4 border-b pb-3 last:border-b-0 last:pb-0"
-                  >
-                    <div className="space-y-1.5">
-                      <p className="text-text-primary text-sm font-medium">
-                        {ANOMALY_LABELS[flag as AnomalyFlag]}
-                      </p>
-                      <AnomalyTag flag={flag as AnomalyFlag} />
-                    </div>
-                    <span className="font-display text-text-primary text-2xl tabular-nums">
-                      {list.length}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </Card>
+          {(bucketFilter || params.rep) && (
+            <Link
+              href="/dashboard/aging"
+              scroll={false}
+              className="text-accent text-sm hover:underline"
+            >
+              Clear filters
+            </Link>
           )}
-        </aside>
+        </div>
+        <AgingTable jobs={visible} />
       </section>
     </div>
   );

@@ -7,6 +7,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  DonutChart,
   HeatMeter,
   MetricTile,
   MissingStepTag,
@@ -76,10 +77,27 @@ export default function DesignSystemPreview() {
             <BarChart
               data={[
                 { label: 'Within terms', value: 18, color: 'var(--color-text-muted)' },
-                { label: '1–30 past', value: 32, color: 'var(--color-heat-warm)' },
-                { label: '31–60 past', value: 44, color: 'var(--color-heat-hot)' },
-                { label: '60+ past', value: 36, color: 'var(--color-heat-critical)' },
+                { label: '1–30 past', value: 32, color: 'var(--color-heat-warm)', hint: '$72,400' },
+                { label: '31–60 past', value: 44, color: 'var(--color-heat-hot)', hint: '$324,200' },
+                { label: '60+ past', value: 36, color: 'var(--color-heat-critical)', hint: '$754,000' },
               ]}
+              format={(n) => `${n} jobs`}
+            />
+          </Card>
+        </Section>
+
+        <Section title="Donut chart">
+          <Card>
+            <DonutChart
+              data={[
+                { label: 'Cool', value: 22, color: 'var(--color-heat-cool)' },
+                { label: 'Warm', value: 44, color: 'var(--color-heat-warm)' },
+                { label: 'Hot', value: 28, color: 'var(--color-heat-hot)' },
+                { label: 'Critical', value: 36, color: 'var(--color-heat-critical)' },
+              ]}
+              centerLabel="In AR"
+              centerValue="130"
+              format={(n) => `${n} jobs`}
             />
           </Card>
         </Section>

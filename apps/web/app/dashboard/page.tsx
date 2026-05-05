@@ -1,8 +1,8 @@
 import Link from 'next/link';
 import {
   AgingChip,
-  BarChart,
   Card,
+  DonutChart,
   HeatMeter,
   MetricTile,
   VeraQuote,
@@ -31,11 +31,10 @@ export default function DashboardOverview() {
     topJob: topThree[0],
   });
 
-  // Heat band distribution chart
   const heatBands = [
     { label: 'Cool', value: jobs.filter((j) => j.heatBand === 'cool').length, color: 'var(--color-heat-cool)' },
     { label: 'Warm', value: jobs.filter((j) => j.heatBand === 'warm').length, color: 'var(--color-heat-warm)' },
-    { label: 'Hot', value: jobs.filter((j) => j.heatBand === 'hot').length, color: 'var(--color-heat-hot)' },
+    { label: 'Hot', value: hot.length, color: 'var(--color-heat-hot)' },
     { label: 'Critical', value: critical.length, color: 'var(--color-heat-critical)' },
   ];
 
@@ -67,65 +66,70 @@ export default function DashboardOverview() {
         />
       </section>
 
-      <section className="grid grid-cols-1 gap-6 lg:grid-cols-[3fr_2fr] vera-rise-delay-2">
-        <div className="space-y-4">
+      <section className="vera-rise-delay-2">
+        <Card>
           <div className="flex items-baseline justify-between">
             <h2 className="text-text-secondary text-sm tracking-[0.2em] uppercase">
-              Top three I&apos;d look at first
+              Heat distribution
             </h2>
-            <Link
-              href="/dashboard/follow-ups"
-              className="text-accent text-sm hover:underline"
-            >
-              See all follow-ups →
-            </Link>
+            <p className="text-text-muted text-xs">
+              How the {jobs.length} active AR jobs split across the four heat bands today.
+            </p>
           </div>
-          <div className="space-y-3">
-            {topThree.map((job) => (
-              <Card key={job.id} className="!py-5">
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div className="min-w-0 flex-1 space-y-1">
-                    <p className="font-display truncate text-xl tracking-tight">
-                      {job.address}
-                    </p>
-                    <p className="text-text-secondary text-sm">
-                      {job.rep?.name ?? 'Unassigned'} · {job.region ?? '—'}
-                      {job.isInsurance ? ' · Insurance' : ' · Retail'}
-                    </p>
-                    <p className="font-display text-text-primary mt-3 text-2xl tracking-tight tabular-nums">
-                      {formatUSD(job.balance)}
-                    </p>
-                  </div>
-                  <div className="flex flex-col items-end gap-3">
-                    <AgingChip bucket={job.agingBucket} />
-                    <HeatMeter
-                      score={job.heatScore}
-                      band={job.heatBand}
-                      breakdown={job.heatBreakdown}
-                      variant="compact"
-                    />
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </div>
-        </div>
-
-        <aside className="space-y-4">
-          <h2 className="text-text-secondary text-sm tracking-[0.2em] uppercase">
-            Heat distribution
-          </h2>
-          <Card>
-            <BarChart
+          <div className="mt-6">
+            <DonutChart
               data={heatBands}
+              size={200}
+              thickness={22}
+              centerLabel="In AR"
+              centerValue={jobs.length.toString()}
               format={(n) => `${n} ${n === 1 ? 'job' : 'jobs'}`}
             />
-            <p className="text-text-muted mt-5 text-xs leading-relaxed">
-              Hover any heat meter on the dashboard to see the four-component breakdown
-              behind a job&apos;s score.
-            </p>
-          </Card>
-        </aside>
+          </div>
+        </Card>
+      </section>
+
+      <section className="space-y-4 vera-rise-delay-3">
+        <div className="flex items-baseline justify-between">
+          <h2 className="text-text-secondary text-sm tracking-[0.2em] uppercase">
+            Top three I&apos;d look at first
+          </h2>
+          <Link
+            href="/dashboard/follow-ups"
+            className="text-accent text-sm hover:underline"
+          >
+            See all follow-ups →
+          </Link>
+        </div>
+        <div className="space-y-3">
+          {topThree.map((job) => (
+            <Card key={job.id} className="!py-5">
+              <div className="flex flex-wrap items-start justify-between gap-6">
+                <div className="min-w-0 flex-1 space-y-1">
+                  <p className="font-display truncate text-xl tracking-tight">
+                    {job.address}
+                  </p>
+                  <p className="text-text-secondary text-sm">
+                    {job.rep?.name ?? 'Unassigned'} · {job.region ?? '—'}
+                    {job.isInsurance ? ' · Insurance' : ' · Retail'}
+                  </p>
+                  <p className="font-display text-text-primary mt-3 text-2xl tracking-tight tabular-nums">
+                    {formatUSD(job.balance)}
+                  </p>
+                </div>
+                <div className="flex flex-col items-end gap-3">
+                  <AgingChip bucket={job.agingBucket} />
+                  <HeatMeter
+                    score={job.heatScore}
+                    band={job.heatBand}
+                    breakdown={job.heatBreakdown}
+                    variant="compact"
+                  />
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
       </section>
     </div>
   );

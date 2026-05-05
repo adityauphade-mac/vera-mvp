@@ -123,15 +123,17 @@ export default async function RepReportPage({
                     : sort === 'count'
                       ? formatUSD(r.totalOutstanding)
                       : sort === 'oldest'
-                        ? `${r.jobCount} jobs`
-                        : `${r.jobCount} jobs`,
-                tooltip: `${r.rep.name} — ${formatUSD(r.totalOutstanding)} across ${r.jobCount} jobs`,
+                        ? `${r.jobCount} ${r.jobCount === 1 ? 'job' : 'jobs'}`
+                        : `${r.jobCount} ${r.jobCount === 1 ? 'job' : 'jobs'}`,
+                tooltip: `${r.rep.name} — ${formatUSD(r.totalOutstanding)} across ${r.jobCount} ${
+                  r.jobCount === 1 ? 'job' : 'jobs'
+                }`,
               }))}
               format={
                 sort === 'dollars'
                   ? (n: number) => formatUSD(n)
                   : sort === 'oldest'
-                    ? (n: number) => `${n}d`
+                    ? (n: number) => `${n} days`
                     : (n: number) => n.toLocaleString()
               }
             />
@@ -161,7 +163,7 @@ export default async function RepReportPage({
             </p>
           </Card>
         ) : (
-          <Leaderboard reps={sorted} totalAR={totalAR} />
+          <Leaderboard reps={sorted} totalAR={totalAR} sort={sort} />
         )}
       </section>
     </div>

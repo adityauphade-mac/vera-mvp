@@ -9,3 +9,5 @@ export * from './components/MissingStepTag';
 export * from './components/VeraQuote';
 export * from './components/MetricTile';
 export * from './components/BarChart';
+export * from './components/DonutChart';
+export * from './components/Table';

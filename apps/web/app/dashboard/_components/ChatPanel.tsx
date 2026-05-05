@@ -106,11 +106,8 @@ export function ChatPanel() {
         )}
       </div>
 
-      <form
-        onSubmit={handleSubmit}
-        className="border-border border-t px-4 py-3"
-      >
-        <div className="border-border focus-within:border-accent flex items-center gap-2 rounded-2xl border px-4 py-2">
+      <form onSubmit={handleSubmit} className="border-border border-t px-5 py-4">
+        <div className="border-border focus-within:border-accent flex items-center gap-2 rounded-full border px-1 py-1 pl-5">
           <input
             value={input}
             onChange={handleInputChange}
@@ -120,11 +117,11 @@ export function ChatPanel() {
           />
           <Button
             type="submit"
-            size="sm"
+            size="icon"
             disabled={isLoading || input.trim().length === 0}
             aria-label="Send message"
           >
-            <Send className="h-3 w-3" />
+            <Send className="h-4 w-4" />
           </Button>
         </div>
       </form>

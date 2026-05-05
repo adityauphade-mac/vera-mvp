@@ -1,85 +1,105 @@
+import {
+  Table,
+  TableCell,
+  TableHead,
+  TableRow,
+  TableShell,
+} from '@vera/ui';
 import { formatUSD } from '@vera/utils';
 import type { RepRollup } from '@vera/types';
 
-const HEADERS: Array<{ label: string; align?: 'right'; tooltip: string }> = [
-  { label: '#', tooltip: 'Rank in the current sort.' },
-  { label: 'Rep', tooltip: 'Sales rep name and email if known.' },
-  { label: 'Outstanding', align: 'right', tooltip: 'Sum of all open balances on this rep\'s installs.' },
-  { label: '', tooltip: 'Visual share of the leader.' },
-  { label: 'Jobs', align: 'right', tooltip: 'Number of AR jobs assigned to this rep.' },
-  { label: 'Hot · Crit', align: 'right', tooltip: 'Hot (51–75) and Critical (76+) jobs in this rep\'s book.' },
-  { label: 'Oldest', align: 'right', tooltip: 'Oldest job\'s days past terms across this rep\'s book.' },
-  { label: 'Avg heat', align: 'right', tooltip: 'Mean of every job\'s heat score for this rep.' },
+type SortKey = 'dollars' | 'count' | 'oldest' | 'heat';
+
+const COLUMNS = [
+  { key: 'rank', label: '#', width: '52px', tooltip: 'Rank in the current sort.' },
+  { key: 'rep', label: 'Rep', tooltip: 'Sales rep name and email if known.' },
+  {
+    key: 'outstanding',
+    label: 'Outstanding',
+    align: 'right' as const,
+    tooltip: "Sum of all open balances on this rep's installs.",
+  },
+  {
+    key: 'jobs',
+    label: 'Jobs',
+    align: 'right' as const,
+    tooltip: 'Number of AR jobs assigned to this rep.',
+  },
+  {
+    key: 'heat',
+    label: 'Hot · Crit',
+    align: 'right' as const,
+    tooltip: "Hot (51–75) and Critical (76+) jobs in this rep's book.",
+  },
+  {
+    key: 'oldest',
+    label: 'Oldest',
+    align: 'right' as const,
+    tooltip: "Oldest job's days past terms across this rep's book.",
+  },
+  {
+    key: 'avg',
+    label: 'Avg heat',
+    align: 'right' as const,
+    tooltip: "Mean of every job's heat score for this rep.",
+  },
 ];
 
-export function Leaderboard({ reps, totalAR }: { reps: RepRollup[]; totalAR: number }) {
-  const max = reps[0]?.totalOutstanding ?? 0;
+export function Leaderboard({
+  reps,
+  totalAR,
+  sort,
+}: {
+  reps: RepRollup[];
+  totalAR: number;
+  sort: SortKey;
+}) {
   return (
-    <div className="border-border bg-bg-card overflow-hidden rounded-[var(--radius-card)] border">
-      <div className="max-h-[640px] overflow-y-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-bg-card sticky top-0 z-10">
-            <tr className="border-border text-text-muted border-b text-left text-[0.65rem] tracking-[0.15em] uppercase">
-              {HEADERS.map((h, i) => (
-                <th
-                  key={i}
-                  title={h.tooltip}
-                  className={`px-5 py-3 font-medium ${h.align === 'right' ? 'text-right' : ''}`}
-                >
-                  {h.label}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {reps.map((r, idx) => {
-              const pct = max > 0 ? Math.round((r.totalOutstanding / max) * 100) : 0;
-              const sharePct =
-                totalAR > 0 ? Math.round((r.totalOutstanding / totalAR) * 100) : 0;
-              return (
-                <tr
-                  key={r.rep.id}
-                  className="border-border last:border-b-0 border-b transition-colors hover:bg-[color:var(--color-bg-base)]"
-                >
-                  <td className="text-text-muted px-5 py-4 tabular-nums">{idx + 1}</td>
-                  <td className="px-5 py-4">
-                    <p className="text-text-primary font-medium">{r.rep.name}</p>
-                    {r.rep.email ? (
-                      <p className="text-text-muted text-xs">{r.rep.email}</p>
-                    ) : null}
-                  </td>
-                  <td className="px-5 py-4 text-right tabular-nums">
-                    <p className="font-medium">{formatUSD(r.totalOutstanding)}</p>
+    <TableShell maxHeight={640}>
+      <Table>
+        <TableHead columns={COLUMNS} />
+        <tbody>
+          {reps.map((r, idx) => {
+            const sharePct =
+              totalAR > 0 ? Math.round((r.totalOutstanding / totalAR) * 100) : 0;
+            return (
+              <TableRow key={r.rep.id}>
+                <TableCell className="text-text-muted tabular-nums">{idx + 1}</TableCell>
+                <TableCell>
+                  <p className="text-text-primary font-medium">{r.rep.name}</p>
+                  {r.rep.email ? (
+                    <p className="text-text-muted text-xs">{r.rep.email}</p>
+                  ) : null}
+                </TableCell>
+                <TableCell align="right" className="tabular-nums">
+                  <p className="font-medium">{formatUSD(r.totalOutstanding)}</p>
+                  {sort === 'dollars' && (
                     <p className="text-text-muted text-xs">{sharePct}% of total</p>
-                  </td>
-                  <td className="hidden px-5 py-4 md:table-cell">
-                    <div className="bg-bg-base h-1.5 w-full rounded-full">
-                      <div
-                        className="bg-accent h-full rounded-full"
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                  </td>
-                  <td className="px-5 py-4 text-right tabular-nums">{r.jobCount}</td>
-                  <td className="px-5 py-4 text-right tabular-nums">
-                    <span className="text-heat-hot">{r.hotJobs}</span>
-                    <span className="text-text-muted"> · </span>
-                    <span className="text-heat-critical">{r.criticalJobs}</span>
-                  </td>
-                  <td className="px-5 py-4 text-right tabular-nums">
-                    {r.oldestDaysPastTerms === 0 ? (
-                      <span className="text-text-muted">—</span>
-                    ) : (
-                      `${r.oldestDaysPastTerms}d`
-                    )}
-                  </td>
-                  <td className="px-5 py-4 text-right tabular-nums">{r.averageHeatScore}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    </div>
+                  )}
+                </TableCell>
+                <TableCell align="right" className="tabular-nums">
+                  {r.jobCount}
+                </TableCell>
+                <TableCell align="right" className="tabular-nums">
+                  <span className="text-heat-hot">{r.hotJobs}</span>
+                  <span className="text-text-muted"> · </span>
+                  <span className="text-heat-critical">{r.criticalJobs}</span>
+                </TableCell>
+                <TableCell align="right" className="tabular-nums">
+                  {r.oldestDaysPastTerms === 0 ? (
+                    <span className="text-text-muted">—</span>
+                  ) : (
+                    `${r.oldestDaysPastTerms}d`
+                  )}
+                </TableCell>
+                <TableCell align="right" className="tabular-nums">
+                  {r.averageHeatScore}
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </tbody>
+      </Table>
+    </TableShell>
   );
 }

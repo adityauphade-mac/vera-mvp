@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import { MessageCircle } from 'lucide-react';
 import { getData } from '@/lib/data';
 import { ChatPanel } from './_components/ChatPanel';
 import { SidebarNav } from './_components/SidebarNav';
@@ -23,15 +22,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <p className="font-display mt-1 text-2xl tracking-tight">AR Studio</p>
         </Link>
         <SidebarNav />
-        <div className="border-border border-t px-6 py-5">
-          <p className="text-text-muted flex items-center gap-2 text-xs">
-            <MessageCircle className="h-3 w-3" />
-            <span>Chat opens bottom-right →</span>
-          </p>
-        </div>
       </aside>
 
-      {/* Main content area, offset by sidebar width on md+ */}
+      {/* Main content */}
       <div className="md:ml-60">
         <header className="border-border bg-bg-base/85 sticky top-0 z-10 flex items-center justify-between border-b px-8 py-5 backdrop-blur">
           <div>
