@@ -1,12 +1,13 @@
 import {
   AgingChip,
   AnomalyTag,
+  BarChart,
   Button,
   Card,
   CardDescription,
   CardHeader,
   CardTitle,
-  HeatScoreBadge,
+  HeatMeter,
   MetricTile,
   MissingStepTag,
   VeraQuote,
@@ -16,7 +17,7 @@ export default function DesignSystemPreview() {
   return (
     <main className="bg-bg-base min-h-screen px-8 py-16">
       <div className="mx-auto max-w-5xl space-y-16">
-        <header className="space-y-3">
+        <header className="space-y-3 vera-rise">
           <p className="text-text-muted text-xs tracking-wider uppercase">
             Internal · Design system preview
           </p>
@@ -43,29 +44,44 @@ export default function DesignSystemPreview() {
           </div>
         </Section>
 
-        <Section title="Heat score badges">
-          <div className="flex flex-wrap gap-3">
-            <HeatScoreBadge
-              score={18}
-              band="cool"
-              breakdown={{ daysComponent: 0, dollarComponent: 14, silenceComponent: 0, anomalyComponent: 4 }}
+        <Section title="Heat meter — every band">
+          <Card>
+            <div className="grid grid-cols-1 gap-8 sm:grid-cols-2">
+              <HeatMeter
+                score={18}
+                band="cool"
+                breakdown={{ daysComponent: 0, dollarComponent: 14, silenceComponent: 0, anomalyComponent: 4 }}
+              />
+              <HeatMeter
+                score={42}
+                band="warm"
+                breakdown={{ daysComponent: 12, dollarComponent: 20, silenceComponent: 5, anomalyComponent: 5 }}
+              />
+              <HeatMeter
+                score={65}
+                band="hot"
+                breakdown={{ daysComponent: 28, dollarComponent: 22, silenceComponent: 5, anomalyComponent: 10 }}
+              />
+              <HeatMeter
+                score={88}
+                band="critical"
+                breakdown={{ daysComponent: 38, dollarComponent: 25, silenceComponent: 15, anomalyComponent: 10 }}
+              />
+            </div>
+          </Card>
+        </Section>
+
+        <Section title="Bar chart">
+          <Card>
+            <BarChart
+              data={[
+                { label: 'Within terms', value: 18, color: 'var(--color-text-muted)' },
+                { label: '1–30 past', value: 32, color: 'var(--color-heat-warm)' },
+                { label: '31–60 past', value: 44, color: 'var(--color-heat-hot)' },
+                { label: '60+ past', value: 36, color: 'var(--color-heat-critical)' },
+              ]}
             />
-            <HeatScoreBadge
-              score={42}
-              band="warm"
-              breakdown={{ daysComponent: 12, dollarComponent: 20, silenceComponent: 5, anomalyComponent: 5 }}
-            />
-            <HeatScoreBadge
-              score={65}
-              band="hot"
-              breakdown={{ daysComponent: 28, dollarComponent: 22, silenceComponent: 5, anomalyComponent: 10 }}
-            />
-            <HeatScoreBadge
-              score={88}
-              band="critical"
-              breakdown={{ daysComponent: 38, dollarComponent: 25, silenceComponent: 15, anomalyComponent: 10 }}
-            />
-          </div>
+          </Card>
         </Section>
 
         <Section title="Aging buckets">
@@ -104,6 +120,7 @@ export default function DesignSystemPreview() {
             <Button>Generate weekly digest</Button>
             <Button variant="secondary">Open job</Button>
             <Button variant="ghost">Dismiss</Button>
+            <Button variant="link">Read the spec</Button>
             <Button size="sm">Small</Button>
             <Button size="lg">Large</Button>
           </div>
@@ -116,10 +133,16 @@ export default function DesignSystemPreview() {
               <CardDescription>Brandon Roberts · Dallas · Insurance</CardDescription>
             </CardHeader>
             <div className="flex flex-wrap items-center gap-3">
-              <HeatScoreBadge score={72} band="hot" />
               <AgingChip bucket="31-60-past" />
               <MissingStepTag label="final check" />
               <MissingStepTag label="commission request" />
+            </div>
+            <div className="mt-4">
+              <HeatMeter
+                score={72}
+                band="hot"
+                breakdown={{ daysComponent: 30, dollarComponent: 22, silenceComponent: 10, anomalyComponent: 10 }}
+              />
             </div>
             <p className="text-text-secondary mt-4 text-sm">
               $14,995 outstanding · install was 47 days ago. Insurance final check still
@@ -134,7 +157,7 @@ export default function DesignSystemPreview() {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="space-y-4">
+    <section className="space-y-4 vera-rise-delay-1">
       <h2 className="text-text-secondary text-sm tracking-wider uppercase">{title}</h2>
       {children}
     </section>

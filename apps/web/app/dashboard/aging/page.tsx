@@ -1,4 +1,5 @@
-import { AnomalyTag, Card, MetricTile, VeraQuote } from '@vera/ui';
+import Link from 'next/link';
+import { AnomalyTag, BarChart, Card, MetricTile, VeraQuote } from '@vera/ui';
 import { formatUSD } from '@vera/utils';
 import type { ARJob, AgingBucket, AnomalyFlag } from '@vera/types';
 import { getData } from '@/lib/data';
@@ -17,6 +18,13 @@ const BUCKET_ORDER: AgingBucket[] = [
   '31-60-past',
   '60-plus-past',
 ];
+
+const BUCKET_COLOR: Record<AgingBucket, string> = {
+  'within-terms': 'var(--color-text-muted)',
+  '1-30-past': 'var(--color-heat-warm)',
+  '31-60-past': 'var(--color-heat-hot)',
+  '60-plus-past': 'var(--color-heat-critical)',
+};
 
 const ANOMALY_LABELS: Record<AnomalyFlag, string> = {
   'balance-exceeds-price': 'Balance exceeds price',
@@ -38,7 +46,6 @@ export default async function AgingPage({
   const params = await searchParams;
   const { jobs } = getData();
 
-  // Bucket summary uses ALL jobs so the chart doesn't move when filtering.
   const bucketSummary: Record<AgingBucket, { count: number; total: number }> = {
     'within-terms': { count: 0, total: 0 },
     '1-30-past': { count: 0, total: 0 },
@@ -50,14 +57,12 @@ export default async function AgingPage({
     bucketSummary[j.agingBucket].total += j.balance;
   }
 
-  // Filtered list
   let visible: ARJob[] = jobs;
   const bucketFilter = isAgingBucket(params.bucket) ? params.bucket : undefined;
   if (bucketFilter) visible = visible.filter((j) => j.agingBucket === bucketFilter);
   if (params.rep) visible = visible.filter((j) => j.rep?.id?.toString() === params.rep);
   visible = [...visible].sort((a, b) => b.daysPastTerms - a.daysPastTerms);
 
-  // Anomaly groupings
   const byAnomaly: Record<string, ARJob[]> = {};
   for (const j of jobs) {
     for (const flag of j.anomalies) {
@@ -67,13 +72,14 @@ export default async function AgingPage({
   }
   const anomalyEntries = Object.entries(byAnomaly).sort((a, b) => b[1].length - a[1].length);
 
-  const totalOver = bucketSummary['1-30-past'].total +
+  const totalOver =
+    bucketSummary['1-30-past'].total +
     bucketSummary['31-60-past'].total +
     bucketSummary['60-plus-past'].total;
 
   return (
     <div className="mx-auto max-w-7xl space-y-10">
-      <header className="space-y-3">
+      <header className="space-y-3 vera-rise">
         <p className="text-text-muted text-xs tracking-[0.2em] uppercase">
           Daily · AR aging & anomaly check
         </p>
@@ -89,8 +95,7 @@ export default async function AgingPage({
         </VeraQuote>
       </header>
 
-      {/* Bucket distribution */}
-      <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <section className="grid grid-cols-2 gap-4 lg:grid-cols-4 vera-rise-delay-1">
         {BUCKET_ORDER.map((b) => (
           <BucketTile
             key={b}
@@ -103,25 +108,44 @@ export default async function AgingPage({
         ))}
       </section>
 
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[3fr_2fr]">
-        {/* Table */}
-        <section className="space-y-3">
+      {/* Bucket chart + clear filter */}
+      <section className="grid grid-cols-1 gap-6 lg:grid-cols-[3fr_2fr] vera-rise-delay-2">
+        <div className="space-y-3">
           <div className="flex items-baseline justify-between">
             <h2 className="text-text-secondary text-sm tracking-[0.2em] uppercase">
               By job — {visible.length} {visible.length === 1 ? 'row' : 'rows'}
             </h2>
             {(bucketFilter || params.rep) && (
-              <a href="/dashboard/aging" className="text-accent text-sm hover:underline">
+              <Link
+                href="/dashboard/aging"
+                scroll={false}
+                className="text-accent text-sm hover:underline"
+              >
                 Clear filters
-              </a>
+              </Link>
             )}
           </div>
           <AgingTable jobs={visible} />
-        </section>
+        </div>
 
-        {/* Anomaly side panel */}
         <aside className="space-y-3">
           <h2 className="text-text-secondary text-sm tracking-[0.2em] uppercase">
+            Past-terms distribution
+          </h2>
+          <Card>
+            <BarChart
+              data={BUCKET_ORDER.map((b) => ({
+                label: BUCKET_LABEL[b],
+                value: bucketSummary[b].count,
+                color: BUCKET_COLOR[b],
+                hint: formatUSD(bucketSummary[b].total),
+                tooltip: `${BUCKET_LABEL[b]}: ${bucketSummary[b].count} jobs · ${formatUSD(bucketSummary[b].total)}`,
+              }))}
+              format={(n) => `${n} ${n === 1 ? 'job' : 'jobs'}`}
+            />
+          </Card>
+
+          <h2 className="text-text-secondary mt-6 text-sm tracking-[0.2em] uppercase">
             What looks strange
           </h2>
           {anomalyEntries.length === 0 ? (
@@ -133,21 +157,19 @@ export default async function AgingPage({
           ) : (
             <Card>
               <ul className="space-y-3">
-                {anomalyEntries.map(([flag, jobs]) => (
+                {anomalyEntries.map(([flag, list]) => (
                   <li
                     key={flag}
                     className="border-border flex items-start justify-between gap-4 border-b pb-3 last:border-b-0 last:pb-0"
                   >
-                    <div className="space-y-1">
+                    <div className="space-y-1.5">
                       <p className="text-text-primary text-sm font-medium">
                         {ANOMALY_LABELS[flag as AnomalyFlag]}
                       </p>
-                      <div className="flex flex-wrap gap-1">
-                        <AnomalyTag flag={flag as AnomalyFlag} />
-                      </div>
+                      <AnomalyTag flag={flag as AnomalyFlag} />
                     </div>
                     <span className="font-display text-text-primary text-2xl tabular-nums">
-                      {jobs.length}
+                      {list.length}
                     </span>
                   </li>
                 ))}
@@ -155,7 +177,7 @@ export default async function AgingPage({
             </Card>
           )}
         </aside>
-      </div>
+      </section>
     </div>
   );
 }
@@ -177,14 +199,23 @@ function BucketTile({
   const emphasis: 'default' | 'accent' | 'critical' =
     bucket === '60-plus-past' ? 'critical' : bucket === '31-60-past' ? 'accent' : 'default';
   return (
-    <a href={href} className={isActive ? 'ring-accent block rounded-[var(--radius-card)] ring-2' : 'block'}>
+    <Link
+      href={href}
+      scroll={false}
+      className={
+        isActive
+          ? 'ring-accent block rounded-[var(--radius-card)] ring-2 transition-all'
+          : 'hover:ring-accent/30 block rounded-[var(--radius-card)] ring-1 ring-transparent transition-all'
+      }
+      title={`${label}: ${count} jobs · ${formatUSD(total)}`}
+    >
       <MetricTile
         label={label}
         value={count}
         hint={formatUSD(total)}
         emphasis={emphasis}
       />
-    </a>
+    </Link>
   );
 }
 

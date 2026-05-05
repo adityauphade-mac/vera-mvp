@@ -8,8 +8,8 @@ test.describe('Dashboard overview (Today)', () => {
 
     // Four metric tiles
     await expect(page.getByText('Total AR')).toBeVisible();
-    await expect(page.getByText('Critical', { exact: true })).toBeVisible();
-    await expect(page.getByText('Hot', { exact: true })).toBeVisible();
+    await expect(page.getByText('Critical', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('Hot', { exact: true }).first()).toBeVisible();
     await expect(page.getByText('Fell through')).toBeVisible();
 
     // Top three section

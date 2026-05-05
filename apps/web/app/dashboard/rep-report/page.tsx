@@ -1,4 +1,5 @@
-import { Card, MetricTile, VeraQuote } from '@vera/ui';
+import Link from 'next/link';
+import { BarChart, Card, MetricTile, VeraQuote } from '@vera/ui';
 import { formatUSD } from '@vera/utils';
 import { getData } from '@/lib/data';
 import { Leaderboard } from './Leaderboard';
@@ -21,7 +22,6 @@ export default async function RepReportPage({
   const sort: SortKey = isSort(params.sort) ? params.sort : 'dollars';
   const { jobs, reps } = getData();
 
-  // Recompute filtered if region or jobType is set.
   let workingReps = reps;
   if (params.region || params.jobType) {
     const filteredJobs = jobs.filter((j) => {
@@ -67,6 +67,7 @@ export default async function RepReportPage({
 
   const totalAR = sorted.reduce((s, r) => s + r.totalOutstanding, 0);
   const top = sorted[0];
+  const top10 = sorted.slice(0, 10);
   const regions = [...new Set(jobs.map((j) => j.region).filter(Boolean))].sort() as string[];
   const jobTypes = [...new Set(jobs.map((j) => j.jobType).filter(Boolean))].sort() as string[];
 
@@ -78,7 +79,7 @@ export default async function RepReportPage({
 
   return (
     <div className="mx-auto max-w-7xl space-y-10">
-      <header className="space-y-3">
+      <header className="space-y-3 vera-rise">
         <p className="text-text-muted text-xs tracking-[0.2em] uppercase">
           Weekly · rep outstanding report
         </p>
@@ -88,7 +89,7 @@ export default async function RepReportPage({
         <VeraQuote>{narrative}</VeraQuote>
       </header>
 
-      <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <section className="grid grid-cols-2 gap-4 lg:grid-cols-4 vera-rise-delay-1">
         <MetricTile label="Reps with AR" value={sorted.length} />
         <MetricTile label="Total outstanding" value={formatUSD(totalAR)} />
         <MetricTile label="Worst single rep" value={top ? formatUSD(top.totalOutstanding) : '—'} />
@@ -98,8 +99,48 @@ export default async function RepReportPage({
         />
       </section>
 
+      {/* Top-10 chart */}
+      {top10.length > 0 && (
+        <section className="space-y-3 vera-rise-delay-2">
+          <h2 className="text-text-secondary text-sm tracking-[0.2em] uppercase">
+            Top 10 reps by {labelFor(sort)}
+          </h2>
+          <Card>
+            <BarChart
+              data={top10.map((r) => ({
+                label: r.rep.name,
+                value:
+                  sort === 'dollars'
+                    ? Math.round(r.totalOutstanding)
+                    : sort === 'count'
+                      ? r.jobCount
+                      : sort === 'oldest'
+                        ? r.oldestDaysPastTerms
+                        : r.averageHeatScore,
+                hint:
+                  sort === 'dollars'
+                    ? `${r.jobCount} jobs`
+                    : sort === 'count'
+                      ? formatUSD(r.totalOutstanding)
+                      : sort === 'oldest'
+                        ? `${r.jobCount} jobs`
+                        : `${r.jobCount} jobs`,
+                tooltip: `${r.rep.name} — ${formatUSD(r.totalOutstanding)} across ${r.jobCount} jobs`,
+              }))}
+              format={
+                sort === 'dollars'
+                  ? (n: number) => formatUSD(n)
+                  : sort === 'oldest'
+                    ? (n: number) => `${n}d`
+                    : (n: number) => n.toLocaleString()
+              }
+            />
+          </Card>
+        </section>
+      )}
+
       {/* Filters */}
-      <section className="space-y-3">
+      <section className="space-y-3 vera-rise-delay-3">
         <Filters
           sort={sort}
           region={params.region}
@@ -109,7 +150,7 @@ export default async function RepReportPage({
         />
       </section>
 
-      <section className="space-y-3">
+      <section className="space-y-3 vera-rise-delay-3">
         <h2 className="text-text-secondary text-sm tracking-[0.2em] uppercase">
           Leaderboard
         </h2>
@@ -208,16 +249,17 @@ function ChipLink({
   children: React.ReactNode;
 }) {
   return (
-    <a
+    <Link
       href={href}
+      scroll={false}
       className={
         active
-          ? 'bg-accent inline-flex items-center rounded-full border border-transparent px-3 py-1 text-xs font-medium text-white'
-          : 'border-border text-text-secondary hover:border-text-secondary inline-flex items-center rounded-full border bg-transparent px-3 py-1 text-xs font-medium'
+          ? 'bg-accent inline-flex items-center rounded-full border border-transparent px-3 py-1 text-xs font-medium text-white shadow-[0_2px_6px_-2px_rgba(200,133,78,0.4)]'
+          : 'border-border text-text-secondary hover:border-accent/40 hover:bg-bg-card inline-flex items-center rounded-full border bg-transparent px-3 py-1 text-xs font-medium transition-colors'
       }
     >
       {children}
-    </a>
+    </Link>
   );
 }
 

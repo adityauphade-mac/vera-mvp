@@ -15,11 +15,19 @@ const STYLE: Record<AgingBucket, string> = {
   '60-plus-past': 'text-heat-critical bg-heat-critical/15',
 };
 
+const TOOLTIP: Record<AgingBucket, string> = {
+  'within-terms': 'Within payment terms — not late.',
+  '1-30-past': '1–30 days past terms.',
+  '31-60-past': '31–60 days past terms — escalation territory.',
+  '60-plus-past': '60+ days past terms — likely needs executive intervention.',
+};
+
 export function AgingChip({ bucket, className }: { bucket: AgingBucket; className?: string }) {
   return (
     <span
+      title={TOOLTIP[bucket]}
       className={cn(
-        'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
+        'inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium leading-none whitespace-nowrap',
         STYLE[bucket],
         className,
       )}

@@ -3,19 +3,22 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '../lib/cn';
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 rounded-[var(--radius-input)] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:pointer-events-none disabled:opacity-50',
+  'inline-flex items-center justify-center gap-2 rounded-full font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:pointer-events-none disabled:opacity-50',
   {
     variants: {
       variant: {
-        primary: 'bg-accent text-white hover:bg-accent/90',
+        primary:
+          'bg-accent text-white shadow-[0_2px_8px_-2px_rgba(200,133,78,0.4)] hover:bg-accent/90 hover:shadow-[0_4px_14px_-2px_rgba(200,133,78,0.5)]',
         secondary:
-          'border border-border bg-bg-card text-text-primary hover:bg-bg-base',
-        ghost: 'text-text-primary hover:bg-bg-card',
+          'border border-border bg-bg-card text-text-primary hover:border-accent/40 hover:bg-bg-base shadow-[0_1px_2px_0_rgba(31,27,22,0.04)]',
+        ghost: 'text-text-secondary hover:bg-bg-card hover:text-text-primary',
+        link: 'text-accent underline-offset-4 hover:underline px-0 shadow-none',
       },
       size: {
-        sm: 'h-9 px-3 text-sm',
-        md: 'h-10 px-4 text-sm',
-        lg: 'h-11 px-5 text-base',
+        sm: 'h-8 px-4 text-xs',
+        md: 'h-10 px-5 text-sm',
+        lg: 'h-12 px-6 text-base',
+        icon: 'h-9 w-9 p-0',
       },
     },
     defaultVariants: { variant: 'primary', size: 'md' },

@@ -52,3 +52,47 @@
     letter-spacing: -0.01em;
   }
 }
+
+@keyframes vera-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes vera-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@utility vera-rise {
+  animation: vera-fade-up 360ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@utility vera-rise-delay-1 {
+  animation: vera-fade-up 360ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: 80ms;
+}
+
+@utility vera-rise-delay-2 {
+  animation: vera-fade-up 360ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: 160ms;
+}
+
+@utility vera-rise-delay-3 {
+  animation: vera-fade-up 360ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: 240ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vera-rise,
+  .vera-rise-delay-1,
+  .vera-rise-delay-2,
+  .vera-rise-delay-3 {
+    animation: none;
+  }
+}

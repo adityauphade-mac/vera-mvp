@@ -1,8 +1,9 @@
 import Link from 'next/link';
 import {
   AgingChip,
+  BarChart,
   Card,
-  HeatScoreBadge,
+  HeatMeter,
   MetricTile,
   VeraQuote,
 } from '@vera/ui';
@@ -16,12 +17,12 @@ export default function DashboardOverview() {
   const hot = jobs.filter((j) => j.heatBand === 'hot');
   const fellThrough = jobs.filter((j) => j.fellThroughCracks);
   const repsWithHeat = new Set(
-    jobs.filter((j) => j.heatBand === 'hot' || j.heatBand === 'critical').map((j) => j.rep?.id),
+    jobs
+      .filter((j) => j.heatBand === 'hot' || j.heatBand === 'critical')
+      .map((j) => j.rep?.id),
   ).size;
 
-  const topThree = [...jobs]
-    .sort((a, b) => b.heatScore - a.heatScore)
-    .slice(0, 3);
+  const topThree = [...jobs].sort((a, b) => b.heatScore - a.heatScore).slice(0, 3);
 
   const briefing = composeBriefing({
     critical: critical.length,
@@ -30,14 +31,22 @@ export default function DashboardOverview() {
     topJob: topThree[0],
   });
 
+  // Heat band distribution chart
+  const heatBands = [
+    { label: 'Cool', value: jobs.filter((j) => j.heatBand === 'cool').length, color: 'var(--color-heat-cool)' },
+    { label: 'Warm', value: jobs.filter((j) => j.heatBand === 'warm').length, color: 'var(--color-heat-warm)' },
+    { label: 'Hot', value: jobs.filter((j) => j.heatBand === 'hot').length, color: 'var(--color-heat-hot)' },
+    { label: 'Critical', value: critical.length, color: 'var(--color-heat-critical)' },
+  ];
+
   return (
     <div className="mx-auto max-w-6xl space-y-12">
-      <section className="space-y-3">
+      <section className="space-y-3 vera-rise">
         <h1 className="font-display text-4xl tracking-tight md:text-5xl">Today&apos;s briefing</h1>
         <VeraQuote>{briefing}</VeraQuote>
       </section>
 
-      <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <section className="grid grid-cols-2 gap-4 lg:grid-cols-4 vera-rise-delay-1">
         <MetricTile label="Total AR" value={formatUSD(totalAR)} hint={`${jobs.length} jobs`} />
         <MetricTile
           label="Critical"
@@ -58,7 +67,7 @@ export default function DashboardOverview() {
         />
       </section>
 
-      <section className="grid grid-cols-1 gap-6 lg:grid-cols-[3fr_2fr]">
+      <section className="grid grid-cols-1 gap-6 lg:grid-cols-[3fr_2fr] vera-rise-delay-2">
         <div className="space-y-4">
           <div className="flex items-baseline justify-between">
             <h2 className="text-text-secondary text-sm tracking-[0.2em] uppercase">
@@ -83,19 +92,18 @@ export default function DashboardOverview() {
                       {job.rep?.name ?? 'Unassigned'} · {job.region ?? '—'}
                       {job.isInsurance ? ' · Insurance' : ' · Retail'}
                     </p>
-                  </div>
-                  <div className="flex flex-col items-end gap-2">
-                    <p className="font-display text-2xl tracking-tight tabular-nums">
+                    <p className="font-display text-text-primary mt-3 text-2xl tracking-tight tabular-nums">
                       {formatUSD(job.balance)}
                     </p>
-                    <div className="flex flex-wrap items-center justify-end gap-2">
-                      <AgingChip bucket={job.agingBucket} />
-                      <HeatScoreBadge
-                        score={job.heatScore}
-                        band={job.heatBand}
-                        breakdown={job.heatBreakdown}
-                      />
-                    </div>
+                  </div>
+                  <div className="flex flex-col items-end gap-3">
+                    <AgingChip bucket={job.agingBucket} />
+                    <HeatMeter
+                      score={job.heatScore}
+                      band={job.heatBand}
+                      breakdown={job.heatBreakdown}
+                      variant="compact"
+                    />
                   </div>
                 </div>
               </Card>
@@ -103,53 +111,22 @@ export default function DashboardOverview() {
           </div>
         </div>
 
-        <aside className="space-y-3">
+        <aside className="space-y-4">
           <h2 className="text-text-secondary text-sm tracking-[0.2em] uppercase">
-            How I&apos;m thinking about this
+            Heat distribution
           </h2>
-          <Card className="space-y-4 !py-6 text-sm">
-            <Default qNum="Q1" label="AR working set">
-              Only jobs with an install date and a balance &gt; 0 — about 130 records out of
-              the 103,440 in RoofLink.
-            </Default>
-            <Default qNum="Q3" label="Net terms">
-              Net 30 for retail / cash. Net 60 for insurance jobs (depreciation timeline).
-            </Default>
-            <Default qNum="Q4" label="Aging buckets">
-              Relative to terms, not the calendar — so a 50-day insurance job is on time.
-            </Default>
-            <Default qNum="Q7" label="Heat score">
-              0–100 with a 4-component breakdown — hover any heat badge to see the math.
-            </Default>
-            <Default qNum="Q9" label="Email behavior">
-              I draft only. Nothing leaves your control until you copy or click&nbsp;send.
-            </Default>
-            <p className="text-text-muted pt-2 text-xs">
-              Full reasoning in <code className="font-mono text-xs">DISCUSSION.md</code>.
+          <Card>
+            <BarChart
+              data={heatBands}
+              format={(n) => `${n} ${n === 1 ? 'job' : 'jobs'}`}
+            />
+            <p className="text-text-muted mt-5 text-xs leading-relaxed">
+              Hover any heat meter on the dashboard to see the four-component breakdown
+              behind a job&apos;s score.
             </p>
           </Card>
         </aside>
       </section>
-    </div>
-  );
-}
-
-function Default({
-  qNum,
-  label,
-  children,
-}: {
-  qNum: string;
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="space-y-1">
-      <p className="text-xs">
-        <span className="text-accent font-medium tracking-wider">{qNum}</span>
-        <span className="text-text-primary ml-2 font-medium">{label}</span>
-      </p>
-      <p className="text-text-secondary leading-relaxed">{children}</p>
     </div>
   );
 }
@@ -184,7 +161,9 @@ function composeBriefing({
   const tail =
     fellThrough === 0
       ? ''
-      : ` And ${fellThrough} ${fellThrough === 1 ? 'job seems to' : 'jobs seem to'} have fallen through cracks since the last sweep — worth a look this week.`;
+      : ` And ${fellThrough} ${
+          fellThrough === 1 ? 'job seems to' : 'jobs seem to'
+        } have fallen through cracks since the last sweep — worth a look this week.`;
 
   return opener + middle + top + tail;
 }

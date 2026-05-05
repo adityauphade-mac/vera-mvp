@@ -6,7 +6,7 @@ export default function Landing() {
     <main className="bg-bg-base min-h-screen">
       <div className="mx-auto max-w-5xl px-6 py-20 md:py-28">
         {/* Hero */}
-        <section className="space-y-6">
+        <section className="space-y-6 vera-rise">
           <p className="text-text-muted text-xs tracking-[0.2em] uppercase">
             Vera Calloway · Lead AR Intelligence Specialist
           </p>
@@ -32,7 +32,7 @@ export default function Landing() {
         </section>
 
         {/* What I do */}
-        <section className="mt-24">
+        <section className="mt-24 vera-rise-delay-1">
           <h2 className="text-text-secondary mb-8 text-sm tracking-[0.2em] uppercase">
             What I do, every morning
           </h2>
@@ -71,7 +71,7 @@ export default function Landing() {
         </section>
 
         {/* How I think */}
-        <section className="mt-24 grid grid-cols-1 gap-12 md:grid-cols-[2fr_3fr]">
+        <section className="mt-24 grid grid-cols-1 gap-12 md:grid-cols-[2fr_3fr] vera-rise-delay-2">
           <div>
             <h2 className="text-text-secondary mb-3 text-sm tracking-[0.2em] uppercase">
               How I think
@@ -111,7 +111,7 @@ export default function Landing() {
         </section>
 
         {/* Vera quote */}
-        <section className="mt-24">
+        <section className="mt-24 vera-rise-delay-3">
           <VeraQuote>
             Good morning. I&apos;m watching three jobs more closely than usual today —
             Mike Ahrend&apos;s McMackin install crossed into the Hot band overnight, and
