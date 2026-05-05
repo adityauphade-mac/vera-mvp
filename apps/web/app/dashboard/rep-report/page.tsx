@@ -101,60 +101,73 @@ export default async function RepReportPage({
 
       {/* Top-10 chart */}
       {top10.length > 0 && (
-        <section className="space-y-3 vera-rise-delay-2">
-          <h2 className="text-text-secondary text-sm tracking-[0.2em] uppercase">
-            Top 10 reps by {labelFor(sort)}
-          </h2>
+        <section className="vera-rise-delay-2">
           <Card>
-            <BarChart
-              data={top10.map((r) => ({
-                label: r.rep.name,
-                value:
+            <div className="space-y-1">
+              <h2 className="text-text-secondary text-sm tracking-[0.2em] uppercase">
+                Top 10 reps by {labelFor(sort)}
+              </h2>
+              <p className="text-text-muted text-xs">
+                The leaderboard&apos;s leading edge — the 10 reps carrying the most weight
+                under the active sort.
+              </p>
+            </div>
+            <div className="mt-6">
+              <BarChart
+                data={top10.map((r) => ({
+                  label: r.rep.name,
+                  value:
+                    sort === 'dollars'
+                      ? Math.round(r.totalOutstanding)
+                      : sort === 'count'
+                        ? r.jobCount
+                        : sort === 'oldest'
+                          ? r.oldestDaysPastTerms
+                          : r.averageHeatScore,
+                  hint:
+                    sort === 'dollars'
+                      ? `${r.jobCount} ${r.jobCount === 1 ? 'job' : 'jobs'}`
+                      : sort === 'count'
+                        ? formatUSD(r.totalOutstanding)
+                        : sort === 'oldest'
+                          ? `${r.jobCount} ${r.jobCount === 1 ? 'job' : 'jobs'}`
+                          : `${r.jobCount} ${r.jobCount === 1 ? 'job' : 'jobs'}`,
+                  tooltip: `${r.rep.name} — ${formatUSD(r.totalOutstanding)} across ${
+                    r.jobCount
+                  } ${r.jobCount === 1 ? 'job' : 'jobs'}`,
+                }))}
+                format={
                   sort === 'dollars'
-                    ? Math.round(r.totalOutstanding)
-                    : sort === 'count'
-                      ? r.jobCount
-                      : sort === 'oldest'
-                        ? r.oldestDaysPastTerms
-                        : r.averageHeatScore,
-                hint:
-                  sort === 'dollars'
-                    ? `${r.jobCount} jobs`
-                    : sort === 'count'
-                      ? formatUSD(r.totalOutstanding)
-                      : sort === 'oldest'
-                        ? `${r.jobCount} ${r.jobCount === 1 ? 'job' : 'jobs'}`
-                        : `${r.jobCount} ${r.jobCount === 1 ? 'job' : 'jobs'}`,
-                tooltip: `${r.rep.name} — ${formatUSD(r.totalOutstanding)} across ${r.jobCount} ${
-                  r.jobCount === 1 ? 'job' : 'jobs'
-                }`,
-              }))}
-              format={
-                sort === 'dollars'
-                  ? (n: number) => formatUSD(n)
-                  : sort === 'oldest'
-                    ? (n: number) => `${n} days`
-                    : (n: number) => n.toLocaleString()
-              }
-            />
+                    ? (n: number) => formatUSD(n)
+                    : sort === 'oldest'
+                      ? (n: number) => `${n} days`
+                      : (n: number) => n.toLocaleString()
+                }
+              />
+            </div>
           </Card>
         </section>
       )}
 
       {/* Filters */}
-      <section className="space-y-3 vera-rise-delay-3">
-        <Filters
-          sort={sort}
-          region={params.region}
-          jobType={params.jobType}
-          regions={regions}
-          jobTypes={jobTypes}
-        />
+      <section className="vera-rise-delay-3">
+        <Card>
+          <h2 className="text-text-secondary mb-4 text-sm tracking-[0.2em] uppercase">
+            Slice the board
+          </h2>
+          <Filters
+            sort={sort}
+            region={params.region}
+            jobType={params.jobType}
+            regions={regions}
+            jobTypes={jobTypes}
+          />
+        </Card>
       </section>
 
       <section className="space-y-3 vera-rise-delay-3">
         <h2 className="text-text-secondary text-sm tracking-[0.2em] uppercase">
-          Leaderboard
+          Leaderboard — {sorted.length} {sorted.length === 1 ? 'rep' : 'reps'}
         </h2>
         {sorted.length === 0 ? (
           <Card>

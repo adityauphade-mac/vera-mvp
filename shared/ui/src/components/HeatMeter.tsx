@@ -55,11 +55,16 @@ export function HeatMeter({
 
   if (variant === 'compact') {
     return (
-      <div title={tooltip} className={cn('inline-flex items-center gap-2', className)}>
-        <span className={cn('text-sm font-semibold tabular-nums', BAND_TEXT[band])}>
+      <div title={tooltip} className={cn('inline-flex items-center gap-2.5', className)}>
+        <span
+          className={cn(
+            'text-sm font-semibold tabular-nums tracking-tight',
+            BAND_TEXT[band],
+          )}
+        >
           {score}
         </span>
-        <div className="bg-bg-base relative h-1.5 w-24 overflow-hidden rounded-full">
+        <div className="bg-bg-base relative h-1.5 w-28 shrink-0 overflow-hidden rounded-full">
           <div
             className={cn('absolute inset-y-0 left-0 rounded-full', BAND_FILL[band])}
             style={{ width: `${clamped}%` }}
@@ -67,7 +72,7 @@ export function HeatMeter({
         </div>
         <span
           className={cn(
-            'text-[0.6rem] font-medium tracking-wider uppercase',
+            'text-[0.6rem] font-medium tracking-wider uppercase whitespace-nowrap',
             BAND_TEXT[band],
           )}
         >

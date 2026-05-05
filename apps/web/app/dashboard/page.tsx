@@ -68,7 +68,7 @@ export default function DashboardOverview() {
 
       <section className="vera-rise-delay-2">
         <Card>
-          <div className="flex items-baseline justify-between">
+          <div className="space-y-1">
             <h2 className="text-text-secondary text-sm tracking-[0.2em] uppercase">
               Heat distribution
             </h2>
@@ -76,7 +76,7 @@ export default function DashboardOverview() {
               How the {jobs.length} active AR jobs split across the four heat bands today.
             </p>
           </div>
-          <div className="mt-6">
+          <div className="mt-7 flex justify-center sm:justify-start">
             <DonutChart
               data={heatBands}
               size={200}
@@ -90,21 +90,13 @@ export default function DashboardOverview() {
       </section>
 
       <section className="space-y-4 vera-rise-delay-3">
-        <div className="flex items-baseline justify-between">
-          <h2 className="text-text-secondary text-sm tracking-[0.2em] uppercase">
-            Top three I&apos;d look at first
-          </h2>
-          <Link
-            href="/dashboard/follow-ups"
-            className="text-accent text-sm hover:underline"
-          >
-            See all follow-ups →
-          </Link>
-        </div>
+        <h2 className="text-text-secondary text-sm tracking-[0.2em] uppercase">
+          Top three I&apos;d look at first
+        </h2>
         <div className="space-y-3">
           {topThree.map((job) => (
             <Card key={job.id} className="!py-5">
-              <div className="flex flex-wrap items-start justify-between gap-6">
+              <div className="flex flex-wrap items-start justify-between gap-8">
                 <div className="min-w-0 flex-1 space-y-1">
                   <p className="font-display truncate text-xl tracking-tight">
                     {job.address}
@@ -129,6 +121,14 @@ export default function DashboardOverview() {
               </div>
             </Card>
           ))}
+        </div>
+        <div className="pt-2 text-right">
+          <Link
+            href="/dashboard/follow-ups"
+            className="text-accent text-sm hover:underline"
+          >
+            See all follow-ups →
+          </Link>
         </div>
       </section>
     </div>

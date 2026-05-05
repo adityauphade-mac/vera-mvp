@@ -20,6 +20,8 @@ for (const route of ROUTES) {
   test(`audit ${route.name}`, async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(route.path, { waitUntil: 'networkidle' });
+    // Wait for entrance animations to finish (delays up to 240ms + 360ms duration).
+    await page.waitForTimeout(800);
 
     // Snapshot file for review
     await page.screenshot({

@@ -50,8 +50,13 @@ export function DonutChart({
   });
 
   return (
-    <div className={cn('flex flex-col gap-5 sm:flex-row sm:items-center', className)}>
-      <div className="relative" style={{ width: size, height: size }}>
+    <div
+      className={cn(
+        'flex flex-col items-center gap-8 sm:flex-row sm:items-center sm:gap-10',
+        className,
+      )}
+    >
+      <div className="relative shrink-0" style={{ width: size, height: size }}>
         <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90">
           <circle
             cx={size / 2}
@@ -98,7 +103,7 @@ export function DonutChart({
         )}
       </div>
 
-      <ul className="flex-1 space-y-2 text-sm">
+      <ul className="w-full space-y-2.5 text-sm sm:w-auto sm:min-w-[240px]">
         {slices.map((s) => (
           <li
             key={s.label}

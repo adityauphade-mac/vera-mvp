@@ -90,12 +90,10 @@ export default async function FollowUpsPage({
             </p>
           </Card>
         ) : (
-          <div className="border-border bg-bg-card max-h-[720px] overflow-y-auto rounded-[var(--radius-card)] border p-3">
-            <div className="space-y-3">
-              {visible.map((job) => (
-                <FollowUpRow key={job.id} job={job} />
-              ))}
-            </div>
+          <div className="max-h-[720px] space-y-3 overflow-y-auto pr-1">
+            {visible.map((job) => (
+              <FollowUpRow key={job.id} job={job} />
+            ))}
           </div>
         )}
       </section>
@@ -106,8 +104,8 @@ export default async function FollowUpsPage({
 function FollowUpRow({ job }: { job: ARJob }) {
   const draft = generateFollowUpDraft(job);
   return (
-    <div className="bg-bg-card border-border rounded-[calc(var(--radius-card)-0.25rem)] border p-5">
-      <div className="flex flex-wrap items-start justify-between gap-4">
+    <Card className="!py-5">
+      <div className="flex flex-wrap items-start justify-between gap-6">
         <div className="min-w-0 flex-1 space-y-2">
           <p className="font-display truncate text-xl tracking-tight">{job.address}</p>
           <p className="text-text-secondary text-sm">
@@ -145,7 +143,7 @@ function FollowUpRow({ job }: { job: ARJob }) {
           )}
         </div>
       </div>
-    </div>
+    </Card>
   );
 }
 

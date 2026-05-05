@@ -58,47 +58,48 @@ export default function ReconciliationPage() {
             </p>
           </Card>
         ) : (
-          <div className="border-border bg-bg-card max-h-[720px] overflow-y-auto rounded-[var(--radius-card)] border p-3">
-            <div className="space-y-3">
-              {fellThrough.map((job) => (
-                <div
-                  key={job.id}
-                  className="bg-bg-card border-border rounded-[calc(var(--radius-card)-0.25rem)] border p-5"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-4">
-                    <div className="min-w-0 flex-1 space-y-2">
-                      <p className="font-display truncate text-xl tracking-tight">
-                        {job.address}
-                      </p>
-                      <p className="text-text-secondary text-sm">
-                        {job.rep?.name ?? 'Unassigned'} · {job.region ?? '—'} ·{' '}
-                        {job.isInsurance ? 'Insurance' : 'Retail'} · installed{' '}
-                        {job.daysSinceInstall} days ago
-                      </p>
-                      {job.fellThroughCracksReasons.length > 0 ? (
-                        <ul className="text-text-muted mt-3 space-y-1 text-sm">
-                          {job.fellThroughCracksReasons.map((reason) => (
-                            <li key={reason}>· {reason}</li>
-                          ))}
-                        </ul>
-                      ) : null}
-                    </div>
-                    <div className="flex flex-col items-end gap-3">
-                      <p className="font-display text-2xl tracking-tight tabular-nums">
-                        {formatUSD(job.balance)}
-                      </p>
-                      <AgingChip bucket={job.agingBucket} />
-                      <HeatMeter
-                        score={job.heatScore}
-                        band={job.heatBand}
-                        breakdown={job.heatBreakdown}
-                        variant="compact"
-                      />
-                    </div>
+          <div className="max-h-[720px] space-y-3 overflow-y-auto pr-1">
+            {fellThrough.map((job) => (
+              <Card key={job.id} className="!py-5">
+                <div className="flex flex-wrap items-start justify-between gap-6">
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <p className="font-display truncate text-xl tracking-tight">
+                      {job.address}
+                    </p>
+                    <p className="text-text-secondary text-sm">
+                      {job.rep?.name ?? 'Unassigned'} · {job.region ?? '—'} ·{' '}
+                      {job.isInsurance ? 'Insurance' : 'Retail'} · installed{' '}
+                      {job.daysSinceInstall} days ago
+                    </p>
+                    {job.fellThroughCracksReasons.length > 0 ? (
+                      <ul className="text-text-muted mt-3 space-y-1.5 text-sm">
+                        {job.fellThroughCracksReasons.map((reason) => (
+                          <li key={reason} className="flex items-start gap-2">
+                            <span
+                              className="bg-text-muted/40 mt-1.5 inline-block h-1 w-1 shrink-0 rounded-full"
+                              aria-hidden="true"
+                            />
+                            <span>{reason}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </div>
+                  <div className="flex flex-col items-end gap-3">
+                    <p className="font-display text-2xl tracking-tight tabular-nums">
+                      {formatUSD(job.balance)}
+                    </p>
+                    <AgingChip bucket={job.agingBucket} />
+                    <HeatMeter
+                      score={job.heatScore}
+                      band={job.heatBand}
+                      breakdown={job.heatBreakdown}
+                      variant="compact"
+                    />
                   </div>
                 </div>
-              ))}
-            </div>
+              </Card>
+            ))}
           </div>
         )}
       </section>

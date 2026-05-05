@@ -96,7 +96,6 @@ export default async function AgingPage({
         </VeraQuote>
       </header>
 
-      {/* Bucket quick filters */}
       <section className="grid grid-cols-2 gap-4 lg:grid-cols-4 vera-rise-delay-1">
         {BUCKET_ORDER.map((b) => (
           <BucketTile
@@ -110,18 +109,18 @@ export default async function AgingPage({
         ))}
       </section>
 
-      {/* Distribution chart row */}
-      <section className="vera-rise-delay-2">
+      {/* Distribution + anomalies, side by side */}
+      <section className="grid grid-cols-1 gap-6 lg:grid-cols-2 vera-rise-delay-2">
         <Card>
-          <div className="flex flex-wrap items-baseline justify-between gap-3">
+          <div className="space-y-1">
             <h2 className="text-text-secondary text-sm tracking-[0.2em] uppercase">
               Past-terms distribution
             </h2>
             <p className="text-text-muted text-xs">
-              Each bar = jobs in that bucket. Hint = total dollars in the bucket.
+              How the {jobs.length} active AR jobs split across the four buckets.
             </p>
           </div>
-          <div className="mt-5">
+          <div className="mt-6">
             <BarChart
               data={BUCKET_ORDER.map((b) => ({
                 label: BUCKET_LABEL[b],
@@ -134,43 +133,49 @@ export default async function AgingPage({
             />
           </div>
         </Card>
-      </section>
 
-      {/* Anomaly summary — horizontal chips */}
-      <section className="space-y-3 vera-rise-delay-3">
-        <h2 className="text-text-secondary text-sm tracking-[0.2em] uppercase">
-          What looks strange
-        </h2>
-        {anomalyEntries.length === 0 ? (
-          <Card>
-            <p className="text-text-secondary">
-              Nothing tripped today. I&apos;ll keep watching.
+        <Card>
+          <div className="space-y-1">
+            <h2 className="text-text-secondary text-sm tracking-[0.2em] uppercase">
+              What looks strange
+            </h2>
+            <p className="text-text-muted text-xs">
+              {anomalyEntries.length === 0
+                ? 'Nothing tripped today.'
+                : `${anomalyEntries.length} anomaly ${anomalyEntries.length === 1 ? 'rule has' : 'rules have'} flagged jobs.`}
             </p>
-          </Card>
-        ) : (
-          <Card>
-            <div className="flex flex-wrap gap-2">
+          </div>
+          {anomalyEntries.length === 0 ? (
+            <p className="text-text-secondary mt-6 text-sm">
+              I&apos;ll keep watching.
+            </p>
+          ) : (
+            <ul className="mt-6 space-y-2.5">
               {anomalyEntries.map(([flag, list]) => (
-                <span
+                <li
                   key={flag}
                   title={`${ANOMALY_LABELS[flag as AnomalyFlag]} — ${list.length} ${
                     list.length === 1 ? 'job' : 'jobs'
                   }`}
-                  className="border-border bg-bg-base inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs"
+                  className="border-border/60 flex items-center justify-between gap-3 border-b pb-2.5 last:border-b-0 last:pb-0"
                 >
-                  <AlertTriangle className="text-heat-hot h-3 w-3 shrink-0" aria-hidden="true" />
-                  <span className="text-text-primary">
-                    {ANOMALY_LABELS[flag as AnomalyFlag]}
+                  <span className="flex items-center gap-2.5 text-sm">
+                    <AlertTriangle
+                      className="text-heat-hot h-3.5 w-3.5 shrink-0"
+                      aria-hidden="true"
+                    />
+                    <span className="text-text-primary">
+                      {ANOMALY_LABELS[flag as AnomalyFlag]}
+                    </span>
                   </span>
-                  <span className="text-text-muted">·</span>
                   <span className="text-text-primary tabular-nums font-semibold">
                     {list.length}
                   </span>
-                </span>
+                </li>
               ))}
-            </div>
-          </Card>
-        )}
+            </ul>
+          )}
+        </Card>
       </section>
 
       {/* Table */}

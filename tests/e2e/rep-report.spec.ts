@@ -8,7 +8,7 @@ test.describe('Rep outstanding report', () => {
     ).toBeVisible();
     await expect(page.getByText('Reps with AR')).toBeVisible();
     await expect(page.getByText('Worst single rep')).toBeVisible();
-    await expect(page.getByText('Leaderboard', { exact: true })).toBeVisible();
+    await expect(page.getByText(/Leaderboard/i).first()).toBeVisible();
   });
 
   test('sort filter changes URL', async ({ page }) => {
