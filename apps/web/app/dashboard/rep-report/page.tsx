@@ -152,16 +152,23 @@ export default async function RepReportPage({
       {/* Filters */}
       <section className="vera-rise-delay-3">
         <Card>
-          <h2 className="text-text-secondary mb-4 text-sm tracking-[0.2em] uppercase">
-            Slice the board
-          </h2>
-          <Filters
-            sort={sort}
-            region={params.region}
-            jobType={params.jobType}
-            regions={regions}
-            jobTypes={jobTypes}
-          />
+          <div className="space-y-1">
+            <h2 className="text-text-secondary text-sm tracking-[0.2em] uppercase">
+              Slice the board
+            </h2>
+            <p className="text-text-muted text-xs">
+              Toggle the sort, then narrow by region or job type.
+            </p>
+          </div>
+          <div className="mt-6">
+            <Filters
+              sort={sort}
+              region={params.region}
+              jobType={params.jobType}
+              regions={regions}
+              jobTypes={jobTypes}
+            />
+          </div>
         </Card>
       </section>
 

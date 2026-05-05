@@ -1,5 +1,6 @@
 import type { AgingBucket } from '@vera/types';
 import { cn } from '../lib/cn';
+import { Tooltip } from './Tooltip';
 
 const LABEL: Record<AgingBucket, string> = {
   'within-terms': 'Within terms',
@@ -24,15 +25,16 @@ const TOOLTIP: Record<AgingBucket, string> = {
 
 export function AgingChip({ bucket, className }: { bucket: AgingBucket; className?: string }) {
   return (
-    <span
-      title={TOOLTIP[bucket]}
-      className={cn(
-        'inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium leading-none whitespace-nowrap',
-        STYLE[bucket],
-        className,
-      )}
-    >
-      {LABEL[bucket]}
-    </span>
+    <Tooltip content={TOOLTIP[bucket]}>
+      <span
+        className={cn(
+          'inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium leading-none whitespace-nowrap',
+          STYLE[bucket],
+          className,
+        )}
+      >
+        {LABEL[bucket]}
+      </span>
+    </Tooltip>
   );
 }

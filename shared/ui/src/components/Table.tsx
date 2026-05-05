@@ -52,7 +52,8 @@ export function TableHead({ columns }: { columns: TableHeadCol[] }) {
             key={c.key}
             title={c.tooltip}
             className={cn(
-              'text-text-secondary px-5 py-3.5 text-[0.65rem] font-semibold tracking-[0.15em] uppercase',
+              'text-text-secondary px-5 py-4 text-[0.65rem] font-semibold tracking-[0.15em] uppercase',
+              c.tooltip && 'cursor-help',
               c.align === 'right' && 'text-right',
               c.align === 'center' && 'text-center',
               !c.align && 'text-left',

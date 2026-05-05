@@ -39,7 +39,7 @@ export default function DashboardOverview() {
   ];
 
   return (
-    <div className="mx-auto max-w-6xl space-y-12">
+    <div className="mx-auto max-w-7xl space-y-10">
       <section className="space-y-3 vera-rise">
         <h1 className="font-display text-4xl tracking-tight md:text-5xl">Today&apos;s briefing</h1>
         <VeraQuote>{briefing}</VeraQuote>
@@ -76,7 +76,7 @@ export default function DashboardOverview() {
               How the {jobs.length} active AR jobs split across the four heat bands today.
             </p>
           </div>
-          <div className="mt-7 flex justify-center sm:justify-start">
+          <div className="mt-6 flex justify-center sm:justify-start">
             <DonutChart
               data={heatBands}
               size={200}
