@@ -53,7 +53,7 @@ export function SidebarNav() {
           className="text-text-secondary hover:bg-bg-base hover:text-text-primary flex items-center gap-3 rounded-lg border-l-2 border-transparent px-3 py-2 text-sm transition-colors"
         >
           <BookOpen className="h-4 w-4" />
-          How Vera works
+          How I work
         </Link>
         <Link
           href="/"

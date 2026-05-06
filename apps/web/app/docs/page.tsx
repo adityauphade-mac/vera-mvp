@@ -13,7 +13,7 @@ import { Button, VeraQuote } from '@vera/ui';
 import { PageNav } from '../_components/PageNav';
 
 const SECTIONS = [
-  { id: 'what-vera-is', label: 'What Vera is' },
+  { id: 'what-vera-is', label: 'Who I am' },
   { id: 'ar', label: 'AR & payment terms' },
   { id: 'heat', label: 'How Heat works' },
   { id: 'reports', label: 'How each report works' },
@@ -54,7 +54,7 @@ const OUT_OF_SCOPE = [
   'Real outbound email — drafts only',
   'Per-rep logins — exec view only',
   'Trend reports, departed-rep audits, end-of-month close',
-  'Edits back to RoofLink — Vera is read-only',
+  'Edits back to RoofLink — I\'m read-only',
   'Mobile layouts — desktop dashboard first',
 ];
 
@@ -67,7 +67,7 @@ export default function DocsPage() {
           <p className="text-text-muted text-[0.65rem] tracking-[0.2em] uppercase">
             Vera Calloway · Handbook
           </p>
-          <p className="font-display text-xl tracking-tight">How Vera works</p>
+          <p className="font-display text-xl tracking-tight">How I work</p>
         </div>
         <Link
           href="/"
@@ -90,37 +90,37 @@ export default function DocsPage() {
               The handbook
             </p>
             <h1 className="font-display text-5xl tracking-tight md:text-6xl">
-              How Vera thinks, in detail.
+              How I think, in detail.
             </h1>
             <p className="text-text-secondary max-w-2xl text-lg leading-relaxed">
               Everything explanatory lives here — what AR means, how payment terms
-              work, how the heat score is computed, what each daily and weekly
-              report does. The landing page is short on purpose; this is where you
-              come to challenge the math.
+              work, how I compute heat scores, what each daily and weekly report
+              does. The landing page is short on purpose; this is where you come
+              to challenge my math.
             </p>
           </header>
 
-          {/* WHAT VERA IS */}
+          {/* WHO I AM */}
           <section id="what-vera-is" className="space-y-6 vera-rise-delay-1 scroll-mt-24">
-            <SectionHeader eyebrow="What Vera is" title="A read-only AR specialist." />
+            <SectionHeader eyebrow="Who I am" title="A read-only AR specialist." />
             <div className="bg-bg-card border-border rounded-[var(--radius-card)] border p-8 space-y-4">
               <p className="text-text-primary text-lg leading-relaxed">
-                Vera Calloway is an AI Accounts Receivable specialist for a roofing
-                company. She watches every install, notices when payment is sitting
-                somewhere it shouldn&apos;t, and drafts the follow-ups before you ask.
+                I&apos;m Vera Calloway, an AI Accounts Receivable specialist for a roofing
+                company. I watch every install, notice when payment is sitting somewhere
+                it shouldn&apos;t, and draft the follow-ups before you ask.
               </p>
               <p className="text-text-secondary leading-relaxed">
-                Vera is <span className="text-text-primary font-medium">observe + draft only</span>:
+                I&apos;m <span className="text-text-primary font-medium">observe + draft only</span>:
                 no autosend, no real outbound email, no edits back to RoofLink, no
-                database writes. RoofLink stays the source of truth — Vera just reads
-                it, pattern-matches, and surfaces what matters. Every default she uses
-                is visible in the UI so you can spot and challenge it.
+                database writes. RoofLink stays the source of truth — I just read it,
+                pattern-match, and surface what matters. Every default I use is
+                visible in the UI so you can spot and challenge it.
               </p>
               <ul className="text-text-secondary mt-4 space-y-2.5 text-sm leading-relaxed">
-                <Bullet>Reads from a daily snapshot of the RoofLink export.</Bullet>
-                <Bullet>Drafts emails you can copy / open in your mail client.</Bullet>
-                <Bullet>Never sends, posts, or modifies anything on your behalf.</Bullet>
-                <Bullet>Shows the four numbers behind every heat score she assigns.</Bullet>
+                <Bullet>I read from a daily snapshot of the RoofLink export.</Bullet>
+                <Bullet>I draft emails you can copy / open in your mail client.</Bullet>
+                <Bullet>I never send, post, or modify anything on your behalf.</Bullet>
+                <Bullet>I show the four numbers behind every heat score I assign.</Bullet>
               </ul>
             </div>
           </section>
@@ -149,8 +149,8 @@ export default function DocsPage() {
               <p className="text-text-secondary mt-4 leading-relaxed">
                 Of 103,440 records in your RoofLink export, only{' '}
                 <span className="text-text-primary font-medium">130 jobs</span> meet
-                the strict definition Vera uses: the roof is on the house{' '}
-                <em>and</em> there&apos;s still money owed. Those 130 are the
+                the strict definition I use: the roof is on the house{' '}
+                <em>and</em> there&apos;s still money owed. Those 130 are my
                 working set.
               </p>
             </div>
@@ -211,7 +211,7 @@ export default function DocsPage() {
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-[3fr_4fr]">
               <div className="space-y-4">
                 <p className="text-text-secondary leading-relaxed">
-                  Every job earns a heat score from four ingredients Vera weighs:
+                  Every job earns a heat score from four ingredients I weigh:
                 </p>
                 <ul className="text-text-secondary space-y-2 text-sm leading-relaxed">
                   <li>
@@ -279,7 +279,7 @@ export default function DocsPage() {
                 cadence="Daily"
                 title="Aging & anomalies"
                 question="How late are my unpaid invoices, and is anything weird?"
-                summary="Every AR job sorted by how far past terms. Plus a panel of strange patterns Vera flagged this morning — math errors, paperwork stuck, work archived but still owing."
+                summary="Every AR job sorted by how far past terms. Plus a panel of strange patterns I flagged this morning — math errors, paperwork stuck, work archived but still owing."
                 tiles={[
                   { label: 'Within terms', meaning: "The customer's payment clock hasn't run out yet. Net 30 retail / Net 60 insurance, from install date." },
                   { label: '1–30 past', meaning: 'Jobs 1–30 days past terms. First nudge territory.' },
@@ -307,9 +307,9 @@ export default function DocsPage() {
                 cadence="Daily"
                 title="Follow-ups & escalation"
                 question="Who do I need to nudge today?"
-                summary="Two queues for two audiences. Hot jobs (heat 51–75) get a draft email Vera writes for the rep — they chase the customer. Critical jobs (76+) skip the rep entirely and go to the executive review queue — they need a personal touch from you."
+                summary="Two queues for two audiences. Hot jobs (heat 51–75) get a draft email I write for the rep — they chase the customer. Critical jobs (76+) skip the rep entirely and go to the executive review queue — they need a personal touch from you."
                 tiles={[
-                  { label: 'Hot — for reps', meaning: 'Heat 51–75. Vera drafts the follow-up; the rep sends. The rep is still the right person to chase this.' },
+                  { label: 'Hot — for reps', meaning: 'Heat 51–75. I draft the follow-up; the rep sends. The rep is still the right person to chase this.' },
                   { label: 'Critical — exec review', meaning: 'Heat 76+. Too far gone for a rep nudge. Personal touch from the office: call the homeowner, write off, or use as a learning moment.' },
                   { label: 'Total in heat', meaning: "Hot + Critical combined. Cool / Warm jobs stay visible elsewhere but don't need follow-up today." },
                   { label: 'Total dollars in heat', meaning: 'Sum of balances across Hot and Critical. The dollar exposure on jobs that need active follow-up today.' },
@@ -335,7 +335,7 @@ export default function DocsPage() {
                 cadence="Weekly"
                 title="Reconciliation — fell through cracks"
                 question="Are any completed installs being totally ignored?"
-                summary={"Once a week Vera walks every completed install and asks: is anyone actually working on this? She looks for any sign of life in the last 14 days — an endorsed insurance check, a certificate of completion, a commission request, or even just a record edit. If none of those exist, the job has fallen through cracks. Aging shows what's late; reconciliation shows what's forgotten."}
+                summary={"Once a week I walk every completed install and ask: is anyone actually working on this? I look for any sign of life in the last 14 days — an endorsed insurance check, a certificate of completion, a commission request, or even just a record edit. If none of those exist, the job has fallen through cracks. Aging shows what's late; reconciliation shows what's forgotten."}
                 tiles={[
                   { label: 'Stuck jobs', meaning: 'Jobs with zero recent activity across all four signals. The forgotten list.' },
                   { label: 'Locked up', meaning: 'Total dollars in stuck jobs. Revenue already worked (materials + labor + commission paid out) but not actively being collected.' },
@@ -353,7 +353,7 @@ export default function DocsPage() {
               title="Default carefully. Show your work."
             />
             <p className="text-text-secondary max-w-3xl leading-relaxed">
-              Every default Vera uses is surfaced so you can challenge it. The Q
+              Every default I use is surfaced so you can challenge it. The Q
               codes correspond to questions in <code>SPEC.md</code>.
             </p>
             <ol className="space-y-7">

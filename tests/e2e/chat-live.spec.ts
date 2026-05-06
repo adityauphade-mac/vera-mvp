@@ -13,8 +13,8 @@ test.describe('Vera chat — live response & avatar', () => {
   }) => {
     await page.goto('/dashboard');
 
-    // 1. The "Ask Vera" FAB button shows the avatar (aria-label="Vera").
-    const fab = page.getByRole('button', { name: /Ask Vera/i });
+    // 1. The "Ask Me" FAB button shows the avatar (aria-label="Vera").
+    const fab = page.getByRole('button', { name: /Ask Me/i });
     await expect(fab).toBeVisible();
     const fabAvatar = fab.locator('[aria-label="Vera"]');
     await expect(fabAvatar).toBeVisible();

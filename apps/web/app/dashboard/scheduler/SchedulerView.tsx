@@ -492,7 +492,7 @@ function ReportRow({
               type="email"
               inputMode="email"
               autoComplete="email"
-              placeholder="who-gets-this@example.com"
+              placeholder="gm@yourcompany.com"
               value={report.recipient}
               onChange={(e) => onChange({ recipient: e.target.value })}
               className={

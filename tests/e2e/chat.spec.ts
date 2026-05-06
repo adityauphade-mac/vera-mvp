@@ -4,7 +4,7 @@ test.describe('Chat panel', () => {
   test('opens and shows suggestions', async ({ page }) => {
     await page.goto('/dashboard');
 
-    const trigger = page.getByRole('button', { name: /Ask Vera/i });
+    const trigger = page.getByRole('button', { name: /Ask Me/i });
     await expect(trigger).toBeVisible();
     await trigger.click();
 
@@ -15,7 +15,7 @@ test.describe('Chat panel', () => {
 
   test('input is focusable and send button starts disabled', async ({ page }) => {
     await page.goto('/dashboard');
-    await page.getByRole('button', { name: /Ask Vera/i }).click();
+    await page.getByRole('button', { name: /Ask Me/i }).click();
 
     const input = page.getByRole('textbox', { name: 'Message' });
     await expect(input).toBeVisible();
@@ -28,7 +28,7 @@ test.describe('Chat panel', () => {
 
   test('closes when X is clicked', async ({ page }) => {
     await page.goto('/dashboard');
-    await page.getByRole('button', { name: /Ask Vera/i }).click();
+    await page.getByRole('button', { name: /Ask Me/i }).click();
     await page.getByRole('button', { name: /Close chat/i }).click();
     await expect(page.getByRole('dialog', { name: /Chat with Vera/i })).toHaveCount(0);
   });

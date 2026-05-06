@@ -292,6 +292,58 @@ export function RepLeaderboardView({
   const totalAR = sortedRows.reduce((s, r) => s + r.outstanding, 0);
   const totalInstalls = sortedRows.reduce((s, r) => s + r.installCount, 0);
   const totalCommissions = sortedRows.reduce((s, r) => s + r.commissions, 0);
+  const totalInstallValue = sortedRows.reduce((s, r) => s + r.installValue, 0);
+  const totalJobCount = sortedRows.reduce((s, r) => s + r.jobCount, 0);
+  const avgHeat =
+    sortedRows.length === 0
+      ? 0
+      : Math.round(sortedRows.reduce((s, r) => s + r.avgHeat, 0) / sortedRows.length);
+  const avgOldest =
+    sortedRows.length === 0
+      ? 0
+      : Math.round(sortedRows.reduce((s, r) => s + r.oldest, 0) / sortedRows.length);
+
+  // Second KPI tile swaps with the selected metric. Tooltip carries the same
+  // language as the metric option's `hint`, just rephrased at the company level.
+  const periodLabel = PERIOD_OPTIONS.find((p) => p.value === period)!.label;
+  const secondaryByMetric: Record<MetricKey, { label: string; value: string | number; tooltip: string }> = {
+    outstanding: {
+      label: 'Total outstanding',
+      value: formatUSD(totalAR),
+      tooltip: 'Sum of outstanding balances across all reps in the current view.',
+    },
+    jobCount: {
+      label: 'Total AR jobs',
+      value: totalJobCount,
+      tooltip: 'Total AR jobs across all reps in the current view.',
+    },
+    oldest: {
+      label: 'Avg oldest aging',
+      value: `${avgOldest}d`,
+      tooltip: 'Average of each rep\'s oldest-job days-past-terms across the current view.',
+    },
+    avgHeat: {
+      label: 'Company avg heat',
+      value: avgHeat,
+      tooltip: 'Mean heat score averaged across reps in the current view.',
+    },
+    installValue: {
+      label: `Total install value · ${periodLabel}`,
+      value: formatUSD(totalInstallValue),
+      tooltip: `Sum of install contract value across all reps for ${periodLabel.toLowerCase()}.`,
+    },
+    commissions: {
+      label: `Total commissions · ${periodLabel}`,
+      value: formatUSD(totalCommissions),
+      tooltip: `Sum of commissions across all reps for ${periodLabel.toLowerCase()}.`,
+    },
+    installCount: {
+      label: `Total installs · ${periodLabel}`,
+      value: totalInstalls,
+      tooltip: `Total installs completed across all reps for ${periodLabel.toLowerCase()}.`,
+    },
+  };
+  const secondaryKpi = secondaryByMetric[metric as MetricKey];
 
   const safePageSize = pageSize as PageSize;
   const pagedRows = sortedRows.slice((page - 1) * safePageSize, page * safePageSize);
@@ -351,17 +403,17 @@ export function RepLeaderboardView({
           tooltip="Number of distinct reps owning at least one AR job in the current view."
         />
         <MetricTile
-          label="Total outstanding"
-          value={formatUSD(totalAR)}
-          tooltip="Sum of outstanding balances across all reps in the current view."
+          label={secondaryKpi.label}
+          value={secondaryKpi.value}
+          tooltip={secondaryKpi.tooltip}
         />
         <MetricTile
-          label={`Installs · ${PERIOD_OPTIONS.find((p) => p.value === period)!.label}`}
+          label={`Installs · ${periodLabel}`}
           value={totalInstalls}
           tooltip="Number of installs completed in the selected period."
         />
         <MetricTile
-          label={`Commissions · ${PERIOD_OPTIONS.find((p) => p.value === period)!.label}`}
+          label={`Commissions · ${periodLabel}`}
           value={formatUSD(totalCommissions)}
           tooltip="Sum of commission amounts on installs completed in the selected period."
         />

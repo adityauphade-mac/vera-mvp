@@ -73,11 +73,11 @@ export function ChatPanel() {
           className="bg-bg-card border-border text-text-primary vera-callout-in relative max-w-[260px] rounded-2xl border px-4 py-3 text-sm shadow-[0_8px_24px_-8px_rgba(31,27,22,0.25)]"
         >
           <p className="font-display text-base leading-tight font-medium">
-            Ask Vera anything
+            Ask me anything
           </p>
           <p className="text-text-secondary mt-1 text-xs leading-relaxed">
-            Who&apos;s worst this week, draft a follow-up, why a job is critical — she
-            answers grounded in real data.
+            Who&apos;s worst this week, draft a follow-up, why a job is critical — I
+            answer grounded in real data.
           </p>
           <button
             onClick={dismissCallout}
@@ -95,9 +95,10 @@ export function ChatPanel() {
       <button
         onClick={handleOpen}
         className="bg-accent vera-fab-pulse flex items-center gap-2 rounded-full py-1.5 pr-5 pl-1.5 text-sm font-medium text-white shadow-lg transition-shadow hover:shadow-xl"
+        aria-label="Ask Me"
       >
         <VeraAvatar size="sm" ring />
-        Ask Vera
+        Ask Me
       </button>
     </div>
   );
@@ -202,7 +203,7 @@ export function ChatPanel() {
                 <input
                   value={input}
                   onChange={handleInputChange}
-                  placeholder="Ask Vera anything about AR…"
+                  placeholder="Ask me anything about AR…"
                   className="text-text-primary placeholder:text-text-muted flex-1 bg-transparent text-sm outline-none"
                   aria-label="Message"
                 />

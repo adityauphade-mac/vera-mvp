@@ -5,7 +5,7 @@ test.describe('Docs (/docs) — handbook', () => {
     await page.goto('/docs');
 
     await expect(
-      page.getByRole('heading', { name: /How Vera thinks, in detail/i }),
+      page.getByRole('heading', { name: /How I think, in detail/i }),
     ).toBeVisible();
 
     // Section headers — all six.

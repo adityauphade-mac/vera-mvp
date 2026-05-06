@@ -7,6 +7,7 @@ import {
   GaugeCircle,
   ListChecks,
   MessageCircle,
+  Palette,
   Trophy,
 } from 'lucide-react';
 import { Button, VeraQuote } from '@vera/ui';
@@ -78,11 +79,12 @@ export default function Landing() {
             <Link href="/docs">
               <Button size="lg" variant="secondary">
                 <BookOpen className="h-4 w-4" />
-                Read how Vera works
+                Read how I work
               </Button>
             </Link>
             <Link href="/design">
-              <Button size="lg" variant="ghost">
+              <Button size="lg" variant="secondary">
+                <Palette className="h-4 w-4" />
                 See the design system
               </Button>
             </Link>
@@ -148,7 +150,7 @@ export default function Landing() {
           <span>Vera MVP · built around Priority Roofs export.</span>
           <span className="flex gap-5">
             <Link href="/docs" className="hover:text-text-primary transition-colors">
-              How Vera works
+              How I work
             </Link>
             <Link href="/design" className="hover:text-text-primary transition-colors">
               Design system

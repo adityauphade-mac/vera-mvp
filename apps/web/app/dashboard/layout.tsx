@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { VeraAvatar } from '@vera/ui';
 import { getData } from '@/lib/data';
 import { ChatPanel } from './_components/ChatPanel';
 import { SidebarNav } from './_components/SidebarNav';
@@ -17,14 +18,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <aside className="border-border bg-bg-card fixed top-0 left-0 z-20 hidden h-screen w-60 flex-col border-r md:flex">
         <Link
           href="/"
-          className="border-border flex h-[84px] flex-col justify-center border-b px-6"
+          className="border-border flex h-[84px] items-center gap-3 border-b px-6"
         >
-          <p className="text-text-muted text-[0.65rem] tracking-[0.25em] uppercase">
-            Vera Calloway
-          </p>
-          <p className="font-display mt-1 text-2xl tracking-tight leading-none">
-            AR Studio
-          </p>
+          <VeraAvatar size="md" />
+          <div>
+            <p className="text-text-muted text-[0.65rem] tracking-[0.25em] uppercase">
+              Vera Calloway
+            </p>
+            <p className="font-display mt-1 text-2xl tracking-tight leading-none">
+              AI Studio
+            </p>
+          </div>
         </Link>
         <SidebarNav />
       </aside>

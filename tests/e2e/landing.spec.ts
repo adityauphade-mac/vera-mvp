@@ -13,7 +13,7 @@ test.describe('Landing page', () => {
       page.getByRole('link', { name: /Open the dashboard/i }).first(),
     ).toBeVisible();
     await expect(
-      page.getByRole('link', { name: /Read how Vera works/i }),
+      page.getByRole('link', { name: /Read how I work/i }),
     ).toBeVisible();
   });
 
@@ -27,12 +27,12 @@ test.describe('Landing page', () => {
     await expect(page.getByRole('heading', { name: /Today.s briefing/i })).toBeVisible();
   });
 
-  test('Read how Vera works link navigates to /docs', async ({ page }) => {
+  test('Read how I work link navigates to /docs', async ({ page }) => {
     await page.goto('/');
-    await page.getByRole('link', { name: /Read how Vera works/i }).click();
+    await page.getByRole('link', { name: /Read how I work/i }).click();
     await expect(page).toHaveURL(/\/docs$/);
     await expect(
-      page.getByRole('heading', { name: /How Vera thinks, in detail/i }),
+      page.getByRole('heading', { name: /How I think, in detail/i }),
     ).toBeVisible();
   });
 });

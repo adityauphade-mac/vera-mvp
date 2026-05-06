@@ -66,7 +66,7 @@ test('chat panel audit', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/dashboard', { waitUntil: 'networkidle' });
 
-  const trigger = page.getByRole('button', { name: /Ask Vera/i });
+  const trigger = page.getByRole('button', { name: /Ask Me/i });
   await trigger.click();
 
   // Wait for chat panel to be visible
