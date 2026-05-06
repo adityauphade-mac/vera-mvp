@@ -82,9 +82,7 @@ export function DonutChart({
                 strokeDashoffset={s.offset}
                 strokeLinecap="butt"
               >
-                <title>
-                  {s.label}: {fmt(s.value)} ({s.pct}%)
-                </title>
+                <title>{`${s.label}: ${fmt(s.value)} (${s.pct}%)`}</title>
               </circle>
             ) : null,
           )}

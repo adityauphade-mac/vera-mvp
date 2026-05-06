@@ -237,6 +237,28 @@ Decisions taken in the post-demo review with Israel:
 
 ---
 
+## 6.7 Email send policy (May 6 2026 update)
+
+This section supersedes Q9 of the original spec for the daily AR brief workflow. Other email-shaped actions (follow-up drafts on `/dashboard/follow-ups`) remain copy-to-clipboard / `mailto:` until they're explicitly migrated.
+
+**Decision**: lift the no-outbound-email and no-autosend restrictions specifically for the daily AR brief. Sending real email is necessary for the GM workflow Israel asked for in the May 5 demo — drafting in-app and re-pasting into an email client is friction the MVP shouldn't carry.
+
+**Implementation**:
+- Outbound delivery via Resend, wrapped in `apps/web/lib/email.ts`.
+- One-shot scheduled sends use Resend's `scheduled_at` field — Resend holds the queued email server-side, so no DB is needed for scheduling state.
+- A rich PDF report (full job table, anomaly breakdown, top reps, bucket distribution chart) is generated per-send via `@react-pdf/renderer` and attached to the outgoing email. PDF is delivery-only — no in-app download.
+- Sending domain in dev: `onboarding@resend.dev` (Resend's restricted sandbox — only sends to the account holder's address). Production sending domain verification is a follow-up.
+
+**Constraints retained**:
+- Every send requires explicit user action + a confirmation modal previewing the recipient, content, and timing.
+- No recurring cron-driven sends in MVP. Each scheduled send is a discrete user-initiated action.
+- No DB writes. Audit trail lives in the Resend dashboard until V2 introduces in-app history.
+- Do-not-contact lists, per-rep quotas, and in-app cancellation of scheduled sends are V2 features.
+
+**Rationale**: confirmation gating + Resend's own audit dashboard meet the safety bar without additional infrastructure. The Neon slot reserved in §6 remains reserved — it's the trigger for V2 (in-app audit log, configurable schedule, do-not-contact list).
+
+---
+
 ## 7. Out of scope (explicitly)
 
 - QuickBooks integration / sync verification (requirement #6)

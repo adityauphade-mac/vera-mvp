@@ -19,8 +19,8 @@ This file is the source of truth for how code is written in this repository. Eve
 1. **No `any` in TypeScript.** If a type is unclear, infer it from the data, define it in `shared/types`, or use `unknown` and narrow.
 2. **No business logic in components.** Components consume; `shared/domain/*` computes. Heat score, aging, anomaly detection — all in `shared/domain/`.
 3. **No fetching the raw 188 MB JSONL at runtime.** The browser only ever sees `generated.json`.
-4. **No real outbound emails.** Drafts only — copy-to-clipboard or `mailto:`. Per Q9 of the spec.
-5. **No autosend, no real DB writes, no destructive mutations of any kind in MVP.** Vera is observe + draft only.
+4. **Outbound email only via the audited send pipeline.** All sends go through `apps/web/lib/email.ts` → Resend. Every send requires explicit user action and a confirmation step in the UI. Audit trail lives in the Resend dashboard until V2 introduces in-app history. Follow-up "drafts" remain copy-to-clipboard / `mailto:` until they're migrated to the same pipeline. Supersedes Q9 of the original spec — see `DISCUSSION.md` §6.7.
+5. **No autosend without explicit human intent.** Scheduled sends use Resend's `scheduled_at` field — they require a user to compose, preview, and confirm a specific email targeted at a specific time. No recurring cron-triggered sends in MVP. No DB writes (the reserved Neon slot remains reserved for V2). No destructive mutations of any kind.
 6. **No new top-level packages without updating this file.** Tech stack is pinned (see below).
 7. **Every new route gets a Playwright spec before it merges.** No exceptions.
 8. **Every default behavior must be visible in the UI** (tooltip / footnote) so users can spot and challenge it. Per the SPEC.md philosophy.
@@ -45,6 +45,8 @@ If you find yourself reaching for something outside this list, stop and propose 
 | Dates | date-fns |
 | Theming | next-themes |
 | AI | Vercel AI SDK + `@ai-sdk/anthropic` (Claude Sonnet 4.6) |
+| Email | Resend (one-shot scheduled sends via `scheduled_at`) |
+| PDF generation | `@react-pdf/renderer` (in-process, serverless-safe) |
 | Tests | Playwright (E2E only for MVP) |
 | Lint / format | ESLint + Prettier |
 | Pre-commit | Husky + lint-staged |
@@ -173,6 +175,7 @@ shared/domain/
 | `/api/jobs/reconciliation` | GET | "Fell through cracks" list (weekly sweep) |
 | `/api/reps/outstanding` | GET | Weekly leaderboard. Query params: `sort`, `region`, `jobType` |
 | `/api/chat` | POST | Streams Claude responses via Vercel AI SDK |
+| `/api/brief/send` | POST | Generates daily AR brief + PDF, sends via Resend (immediate or `scheduled_at`). Body: `{ to, sendAt? }` |
 
 Every route validates request input with Zod and returns Zod-validated JSON. No route reads `jobs_dedup.jsonl` directly — only the cached `generated.json`. All filtering/aggregation delegates to `shared/domain/*` so behavior matches the build-time preprocess.
 
@@ -183,6 +186,8 @@ Every route validates request input with Zod and returns Zod-validated JSON. No 
 | Var | Where | Notes |
 |---|---|---|
 | `ANTHROPIC_API_KEY` | server only | Never expose. Lives in Vercel project settings + `.env.local`. |
+| `OPENAI_API_KEY` | server only | Used by `/api/chat` until the Anthropic migration. |
+| `RESEND_API_KEY` | server only | Used by `/api/brief/send`. Without it, the route returns 503. Domain verification still pending — dev uses `onboarding@resend.dev` and can only send to the Resend account holder's email. |
 | `NEXT_PUBLIC_*` | client OK | Reserved for genuinely public values; avoid for now. |
 
 `.env.local` is gitignored. `.env.example` is checked in with empty values.
@@ -208,6 +213,8 @@ A deterministic snapshot of `generated.json` lives at `tests/fixtures/generated.
 ### AI in tests
 
 `/api/chat` is mocked in CI (returns a canned streaming response). One smoke test runs against the real API in local dev only, gated behind `RUN_LIVE_AI=1`.
+
+`/api/brief/send` is mocked in CI (Resend SDK is not called for real). One smoke test runs against the real Resend API in local dev only, gated behind `RUN_LIVE_EMAIL=1`. Without `RESEND_API_KEY` set, the live test skips automatically.
 
 ### Commands
 

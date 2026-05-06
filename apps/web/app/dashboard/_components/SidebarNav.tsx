@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import {
   AlertTriangle,
   BookOpen,
+  CalendarClock,
   ClipboardCheck,
   GaugeCircle,
   Home,
@@ -20,6 +21,7 @@ const NAV = [
   { href: '/dashboard/follow-ups', label: 'Follow-ups', icon: GaugeCircle },
   { href: '/dashboard/rep-leaderboard', label: 'Rep leaderboard', icon: Trophy },
   { href: '/dashboard/reconciliation', label: 'Reconciliation', icon: ClipboardCheck },
+  { href: '/dashboard/scheduler', label: 'Scheduler', icon: CalendarClock },
 ];
 
 export function SidebarNav() {

@@ -1,7 +1,7 @@
 {
   "$schema": "https://turborepo.com/schema.json",
   "ui": "tui",
-  "globalEnv": ["OPENAI_API_KEY", "RUN_LIVE_AI"],
+  "globalEnv": ["OPENAI_API_KEY", "RESEND_API_KEY", "EMAIL_FROM", "RUN_LIVE_AI", "RUN_LIVE_EMAIL"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],

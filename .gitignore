@@ -10,6 +10,7 @@ out
 *.tsbuildinfo
 
 # data
+/data
 data/jobs_dedup.jsonl
 data/generated.json
 # apps/web/data/generated.json is COMMITTED — Vercel reads it directly during
