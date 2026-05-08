@@ -77,9 +77,17 @@ export function HeatMeter({
           >
             {score}
           </span>
-          <span className="bg-bg-base relative h-1.5 w-28 shrink-0 overflow-hidden rounded-full">
+          <span
+            className={cn(
+              'bg-bg-base relative h-1.5 w-28 shrink-0 overflow-hidden rounded-full vera-color-shift',
+              band === 'critical' && 'vera-critical-glow',
+            )}
+          >
             <span
-              className={cn('absolute inset-y-0 left-0 rounded-full', BAND_FILL[band])}
+              className={cn(
+                'absolute inset-y-0 left-0 rounded-full vera-color-shift',
+                BAND_FILL[band],
+              )}
               style={{ width: `${clamped}%` }}
             />
           </span>
@@ -110,9 +118,18 @@ export function HeatMeter({
             <span className="text-text-muted text-xs">/ 100</span>
           </div>
         </div>
-        <div className={cn('relative h-2.5 overflow-hidden rounded-full', BAND_TINT[band])}>
+        <div
+          className={cn(
+            'relative h-2.5 overflow-hidden rounded-full vera-color-shift',
+            BAND_TINT[band],
+            band === 'critical' && 'vera-critical-glow',
+          )}
+        >
           <div
-            className={cn('absolute inset-y-0 left-0 rounded-full', BAND_FILL[band])}
+            className={cn(
+              'absolute inset-y-0 left-0 rounded-full vera-color-shift',
+              BAND_FILL[band],
+            )}
             style={{ width: `${clamped}%` }}
           />
         </div>

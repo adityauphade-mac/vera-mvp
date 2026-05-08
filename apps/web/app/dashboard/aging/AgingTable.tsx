@@ -86,7 +86,7 @@ export function AgingTable({
               <TableRow
                 key={job.id}
                 onClick={() => setSelected(job)}
-                className="cursor-pointer"
+                className="cursor-pointer vera-press"
               >
                 <TableCell>
                   <p className="text-text-primary font-medium">{job.address}</p>

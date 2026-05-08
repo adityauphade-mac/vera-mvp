@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { cn } from '../lib/cn';
+import { Ticker } from './Ticker';
 import { Tooltip } from './Tooltip';
 
 export interface MetricTileProps {
@@ -9,6 +10,13 @@ export interface MetricTileProps {
   tooltip?: string;
   className?: string;
   emphasis?: 'default' | 'accent' | 'critical';
+  /**
+   * When `value` is a number, animate it on change with the Ticker. For
+   * formatted numeric strings (e.g. "$1,278,629"), pass `numericValue` and
+   * `format` so we can still ticker through the change.
+   */
+  numericValue?: number;
+  format?: (n: number) => string;
 }
 
 export function MetricTile({
@@ -18,7 +26,20 @@ export function MetricTile({
   tooltip,
   className,
   emphasis = 'default',
+  numericValue,
+  format,
 }: MetricTileProps) {
+  // Use the Ticker if a numericValue is provided OR if `value` is itself a
+  // plain number. Otherwise render `value` as-is (ReactNode passthrough).
+  const renderValue =
+    numericValue !== undefined ? (
+      <Ticker value={numericValue} format={format} />
+    ) : typeof value === 'number' ? (
+      <Ticker value={value} format={format} />
+    ) : (
+      value
+    );
+
   const inner = (
     <div
       className={cn(
@@ -37,7 +58,7 @@ export function MetricTile({
           emphasis === 'critical' && 'text-heat-critical',
         )}
       >
-        {value}
+        {renderValue}
       </p>
       <p
         className={cn(

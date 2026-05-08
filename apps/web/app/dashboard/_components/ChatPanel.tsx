@@ -16,14 +16,40 @@ const SUGGESTIONS = [
 
 const CALLOUT_KEY = 'vera-chat-callout-dismissed';
 
+// Match the vera-modal-out / vera-backdrop-out durations in globals.css. If
+// you change one, change the other.
+const EXIT_DURATION_MS = 240;
+
 export function ChatPanel() {
   const [open, setOpen] = useState(false);
+  const [closing, setClosing] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [showCallout, setShowCallout] = useState(false);
+  const closeTimerRef = useRef<number | null>(null);
   const { messages, input, handleInputChange, handleSubmit, isLoading, append } = useChat({
     api: '/api/chat',
   });
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Two-step close: flip `closing` to play the exit animation, then unmount
+  // once the animation duration has elapsed. Guarded against double-fires
+  // and unmount during the timer.
+  function handleClose() {
+    if (closing) return;
+    setClosing(true);
+    if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = window.setTimeout(() => {
+      setOpen(false);
+      setClosing(false);
+      closeTimerRef.current = null;
+    }, EXIT_DURATION_MS);
+  }
+
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     setMounted(true);
@@ -44,7 +70,7 @@ export function ChatPanel() {
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
+      if (e.key === 'Escape') handleClose();
     };
     window.addEventListener('keydown', onKey);
     document.body.style.overflow = 'hidden';
@@ -52,6 +78,7 @@ export function ChatPanel() {
       window.removeEventListener('keydown', onKey);
       document.body.style.overflow = '';
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   useEffect(() => {
@@ -112,14 +139,18 @@ export function ChatPanel() {
     open && mounted ? (
       createPortal(
         <div
-          className="vera-backdrop-in fixed inset-0 z-[90] flex items-center justify-center bg-black/40 p-6 backdrop-blur-sm"
+          className={`fixed inset-0 z-[90] flex items-center justify-center bg-black/40 p-6 backdrop-blur-sm ${
+            closing ? 'vera-backdrop-out' : 'vera-backdrop-in'
+          }`}
           role="dialog"
           aria-modal="true"
           aria-label="Chat with Vera"
-          onClick={() => setOpen(false)}
+          onClick={handleClose}
         >
           <div
-            className="vera-modal-in bg-bg-card border-border flex h-full max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border shadow-2xl"
+            className={`bg-bg-card border-border flex h-full max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border shadow-2xl ${
+              closing ? 'vera-modal-out' : 'vera-modal-in'
+            }`}
             onClick={(e) => e.stopPropagation()}
           >
             <header className="border-border flex items-center justify-between gap-4 border-b px-7 py-5">
@@ -135,7 +166,7 @@ export function ChatPanel() {
                 </div>
               </div>
               <button
-                onClick={() => setOpen(false)}
+                onClick={handleClose}
                 className="text-text-muted hover:text-text-primary -mr-2 rounded-full p-2 transition-colors"
                 aria-label="Close chat"
               >

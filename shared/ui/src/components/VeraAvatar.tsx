@@ -44,7 +44,7 @@ export function VeraAvatar({
         width={px}
         height={px}
         onError={() => setErrored(true)}
-        className="h-full w-full object-cover"
+        className="h-full w-full object-cover vera-avatar-idle"
       />
     </span>
   );

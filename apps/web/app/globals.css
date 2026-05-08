@@ -134,6 +134,128 @@
   }
 }
 
+/* ===== Exit animations =====
+ * Mirror the in-animations so dismissing a sheet/modal/drawer feels as
+ * intentional as opening one. Components flip a state flag, render the
+ * `-out` class, then unmount on `animationend`.
+ */
+
+@keyframes vera-backdrop-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes vera-modal-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+  }
+}
+
+@keyframes vera-drawer-out {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes vera-sheet-out {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+}
+
+@keyframes vera-callout-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+
+/* ===== Phase 5 — additional animations ===== */
+
+/* 3 — Skeleton loader shimmer */
+@keyframes vera-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* 4 — "Sent ✓" success burst */
+@keyframes vera-success-pop {
+  0% {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.06);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes vera-success-glow {
+  0% {
+    box-shadow: 0 0 0 0 rgba(74, 156, 86, 0.55);
+  }
+  100% {
+    box-shadow: 0 0 0 14px rgba(74, 156, 86, 0);
+  }
+}
+
+/* 6 — Vera avatar idle blink (subtle scale-y on the eye area) */
+@keyframes vera-avatar-blink {
+  0%, 92%, 100% {
+    transform: scaleY(1);
+  }
+  95% {
+    transform: scaleY(0.1);
+  }
+}
+
+/* 7 — Heat-meter critical-band glow */
+@keyframes vera-critical-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(160, 68, 50, 0.0);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(160, 68, 50, 0.18);
+  }
+}
+
+/* 8 — Page transitions (Next.js App Router pattern) */
+@keyframes vera-page-fade {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @utility vera-rise {
   animation: vera-fade-up 360ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
@@ -177,6 +299,82 @@
   animation: vera-drawer-in 260ms cubic-bezier(0.2, 0.9, 0.2, 1) both;
 }
 
+/* Exit utilities — paired with the -in animations above. Components flip a
+ * state flag on dismiss, render the -out class, then unmount on
+ * `animationend`. Eased with a quicker easing curve so the dismiss feels
+ * as crisp as the open. */
+@utility vera-backdrop-out {
+  animation: vera-backdrop-out 200ms ease-in both;
+}
+
+@utility vera-modal-out {
+  animation: vera-modal-out 220ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+@utility vera-drawer-out {
+  animation: vera-drawer-out 240ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+@utility vera-sheet-out {
+  animation: vera-sheet-out 220ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+@utility vera-callout-out {
+  animation: vera-callout-out 240ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+/* 1 — Tap feedback / press states. Pair with active: state on a button or
+   data-pressed=true on a card. Mobile-only — desktop uses hover instead. */
+@utility vera-press {
+  transition: transform 120ms ease-out, opacity 120ms ease-out;
+}
+@media (hover: none) {
+  .vera-press:active {
+    transform: scale(0.97);
+    opacity: 0.85;
+  }
+}
+
+/* 3 — Skeleton loader shimmer */
+@utility vera-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-bg-subtle) 0%,
+    var(--color-bg-base) 50%,
+    var(--color-bg-subtle) 100%
+  );
+  background-size: 200% 100%;
+  animation: vera-shimmer 1.6s ease-in-out infinite;
+  border-radius: 0.5rem;
+}
+
+/* 4 — "Sent ✓" success state */
+@utility vera-success-pop {
+  animation: vera-success-pop 360ms cubic-bezier(0.2, 0.9, 0.2, 1) both,
+    vera-success-glow 900ms ease-out both;
+}
+
+/* 5 — AgingChip / HeatMeter color-shift transition */
+@utility vera-color-shift {
+  transition: color 240ms ease-out, background-color 240ms ease-out,
+    border-color 240ms ease-out;
+}
+
+/* 6 — VeraAvatar idle micro-animations */
+@utility vera-avatar-idle {
+  animation: vera-avatar-blink 6.5s ease-in-out infinite;
+}
+
+/* 7 — Heat-meter critical-band glow */
+@utility vera-critical-glow {
+  animation: vera-critical-glow 2.4s ease-in-out infinite;
+}
+
+/* 8 — Page transitions */
+@utility vera-page-fade {
+  animation: vera-page-fade 320ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .vera-rise,
   .vera-rise-delay-1,
@@ -187,7 +385,17 @@
   .vera-sheet-in,
   .vera-backdrop-in,
   .vera-modal-in,
-  .vera-drawer-in {
+  .vera-drawer-in,
+  .vera-callout-out,
+  .vera-sheet-out,
+  .vera-backdrop-out,
+  .vera-modal-out,
+  .vera-drawer-out,
+  .vera-skeleton,
+  .vera-success-pop,
+  .vera-avatar-idle,
+  .vera-critical-glow,
+  .vera-page-fade {
     animation: none;
   }
 }

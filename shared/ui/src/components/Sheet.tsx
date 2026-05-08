@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { cn } from '../lib/cn';
@@ -16,9 +16,16 @@ export interface SheetProps {
   widthClass?: string;
 }
 
+// Match vera-sheet-out / vera-backdrop-out durations in globals.css. If
+// you change one, change the other.
+const EXIT_DURATION_MS = 220;
+
 /**
  * Right-side sheet rendered into document.body via portal. Esc closes.
  * Body scroll locked while open. Click on overlay also closes.
+ *
+ * Closing plays the vera-sheet-out / vera-backdrop-out animation, then
+ * unmounts. Consumers don't need to know — they just toggle `open`.
  */
 export function Sheet({
   open,
@@ -29,14 +36,39 @@ export function Sheet({
   className,
   widthClass = 'max-w-xl',
 }: SheetProps) {
-  const mountedRef = useRef(false);
+  const [renderOpen, setRenderOpen] = useState(open);
+  const [closing, setClosing] = useState(false);
+  const closeTimerRef = useRef<number | null>(null);
+
+  // Sync internal lifecycle to the controlled `open` prop. When `open`
+  // flips false, we keep rendering, swap to the -out class, and unmount
+  // after the exit animation finishes.
+  useEffect(() => {
+    if (open) {
+      if (closeTimerRef.current) {
+        window.clearTimeout(closeTimerRef.current);
+        closeTimerRef.current = null;
+      }
+      setRenderOpen(true);
+      setClosing(false);
+    } else if (renderOpen && !closing) {
+      setClosing(true);
+      closeTimerRef.current = window.setTimeout(() => {
+        setRenderOpen(false);
+        setClosing(false);
+        closeTimerRef.current = null;
+      }, EXIT_DURATION_MS);
+    }
+  }, [open, renderOpen, closing]);
 
   useEffect(() => {
-    mountedRef.current = true;
+    return () => {
+      if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current);
+    };
   }, []);
 
   useEffect(() => {
-    if (!open) return;
+    if (!renderOpen) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onOpenChange(false);
     };
@@ -46,20 +78,24 @@ export function Sheet({
       window.removeEventListener('keydown', onKey);
       document.body.style.overflow = '';
     };
-  }, [open, onOpenChange]);
+  }, [renderOpen, onOpenChange]);
 
-  if (!open || typeof document === 'undefined') return null;
+  if (!renderOpen || typeof document === 'undefined') return null;
 
   return createPortal(
     <div
-      className="vera-backdrop-in fixed inset-0 z-[90] flex justify-end bg-black/40 backdrop-blur-sm"
+      className={cn(
+        'fixed inset-0 z-[90] flex justify-end bg-black/40 backdrop-blur-sm',
+        closing ? 'vera-backdrop-out' : 'vera-backdrop-in',
+      )}
       role="dialog"
       aria-modal="true"
       onClick={() => onOpenChange(false)}
     >
       <aside
         className={cn(
-          'bg-bg-card border-border vera-sheet-in flex h-full w-full flex-col border-l shadow-2xl',
+          'bg-bg-card border-border flex h-full w-full flex-col border-l shadow-2xl',
+          closing ? 'vera-sheet-out' : 'vera-sheet-in',
           widthClass,
           className,
         )}

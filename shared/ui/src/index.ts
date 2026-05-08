@@ -22,3 +22,5 @@ export * from './components/Popover';
 export * from './components/Switch';
 export * from './components/Select';
 export * from './components/TimePicker';
+export * from './components/Ticker';
+export * from './components/Skeleton';

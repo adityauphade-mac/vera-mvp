@@ -40,7 +40,7 @@ function FollowUpRow({ job, onOpen }: { job: ARJob; onOpen: () => void }) {
   const draft = generateFollowUpDraft(job);
   return (
     <Card
-      className="!py-5 min-h-[200px] cursor-pointer transition-shadow hover:shadow-[0_4px_16px_-6px_rgba(31,27,22,0.08)]"
+      className="!py-5 min-h-[200px] cursor-pointer vera-press transition-shadow hover:shadow-[0_4px_16px_-6px_rgba(31,27,22,0.08)]"
       onClick={onOpen}
     >
       <div className="flex h-full flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-6">

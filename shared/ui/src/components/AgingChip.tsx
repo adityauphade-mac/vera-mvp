@@ -28,7 +28,7 @@ export function AgingChip({ bucket, className }: { bucket: AgingBucket; classNam
     <Tooltip content={TOOLTIP[bucket]}>
       <span
         className={cn(
-          'inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium leading-none whitespace-nowrap',
+          'inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium leading-none whitespace-nowrap vera-color-shift',
           STYLE[bucket],
           className,
         )}
