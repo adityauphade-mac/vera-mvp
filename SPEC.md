@@ -138,7 +138,7 @@ These are decisions where the requirements were ambiguous and an MVP default was
 
 ---
 
-## Tech stack (summary — full detail in `ARCHITECTURE.md`)
+## Tech stack (summary — full detail in `docs/ARCHITECTURE.md`)
 
 - **Monorepo:** pnpm workspaces + Turborepo. One Next.js 16 app in `apps/web`. All shared code in `shared/` (types, ui, domain logic, utils).
 - **Frontend:** Next.js 16 (App Router), TypeScript strict, Tailwind, shadcn/ui, Lucide icons, TanStack Table, Recharts/Tremor, React Hook Form, Zod, nuqs, date-fns.

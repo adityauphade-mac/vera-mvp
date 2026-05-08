@@ -8,7 +8,7 @@ This file is the source of truth for how code is written in this repository. Eve
 
 **What this is.** An MVP of "Vera Calloway," an AI Accounts Receivable specialist for a roofing company (Priority Roofs). The brief, the five focused requirements, and all 19 product decisions are documented in `SPEC.md` and `DISCUSSION.md`. Read those before writing code.
 
-**Architecture.** Monorepo (pnpm workspaces + Turborepo), one Next.js 16 app, all shared code in `shared/`, deployed to Vercel. Full architecture in `ARCHITECTURE.md`.
+**Architecture.** Monorepo (pnpm workspaces + Turborepo), one Next.js 16 app, all shared code in `shared/`, deployed to Vercel. Full architecture in `docs/ARCHITECTURE.md`.
 
 **You are read-only on the source data.** `data/jobs_dedup.jsonl` is never modified. Derived artifacts (`data/generated.json`) are gitignored — they regenerate on build.
 

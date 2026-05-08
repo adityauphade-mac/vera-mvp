@@ -16,9 +16,9 @@
 - **Deployed** to Vercel (`vera-mvp.vercel.app`).
 
 For the topology diagram, table-by-table walkthrough, and routes
-reference, see [`docs/INFRASTRUCTURE.md`](./docs/INFRASTRUCTURE.md). For
-full route documentation see [`docs/API.md`](./docs/API.md). For a
-working local environment, see [`docs/ONBOARDING.md`](./docs/ONBOARDING.md).
+reference, see [`INFRASTRUCTURE.md`](./INFRASTRUCTURE.md). For
+full route documentation see [`API.md`](./API.md). For a working
+local environment, see [`ONBOARDING.md`](./ONBOARDING.md).
 
 ---
 
@@ -99,6 +99,7 @@ israil_mvp/
 │   └── generated.json                    # output of preprocess
 │
 ├── docs/                                 # operational documentation
+│   ├── ARCHITECTURE.md                   # this file
 │   ├── INFRASTRUCTURE.md
 │   ├── OPERATIONS.md
 │   ├── API.md
@@ -116,7 +117,6 @@ israil_mvp/
 ├── CLAUDE.md                             # project constitution
 ├── SPEC.md
 ├── DISCUSSION.md
-├── ARCHITECTURE.md                       # this file
 ├── IMPROVEMENTS.md
 ├── IMPLEMENTATION_PLAN.md
 └── package.json                          # workspace root
@@ -341,7 +341,7 @@ and chat tone.
 
 ## Testing
 
-Playwright end-to-end only — see [`docs/TESTING.md`](./docs/TESTING.md)
+Playwright end-to-end only — see [`TESTING.md`](./TESTING.md)
 for the full coverage map. ~96 specs in the default suite, JWT cookie
 helper for auth-gated specs, opt-in env flags for live-network tests.
 
@@ -371,4 +371,4 @@ pnpm --filter @vera/web lint
 pnpm --filter @vera/web build      # production build (auto-runs prisma generate)
 ```
 
-For a 15-minute "first run" walkthrough see `docs/ONBOARDING.md`.
+For a 15-minute "first run" walkthrough see [`ONBOARDING.md`](./ONBOARDING.md).

@@ -223,7 +223,7 @@ After locking the 19 product questions, we settled the engineering shape:
 - **Playwright E2E testing per module** is mandatory — every dashboard route gets a spec before it merges. AI calls mocked in CI.
 - **Design theme** is a warm reinterpretation of CRED — premium but not cold, intelligent but not overwhelming. Parchment cream backgrounds, terracotta brass accents, muted heat-band colors (sage / mustard / terracotta / muted brick). Fraunces serif headings + Inter body. Vera's voice is composed and warm — she narrates her findings rather than alerting.
 
-Full detail in `ARCHITECTURE.md`. Engineering rules in `CLAUDE.md`.
+Full detail in `docs/ARCHITECTURE.md`. Engineering rules in `CLAUDE.md`.
 
 ---
 

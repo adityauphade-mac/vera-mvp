@@ -8,7 +8,7 @@ A demo of an AI accounts receivable specialist for a roofing contractor (Priorit
 |---|---|
 | [`SPEC.md`](./SPEC.md) | The flat product spec — what we're building, all 19 default decisions |
 | [`DISCUSSION.md`](./DISCUSSION.md) | Narrative log of how each decision was reached |
-| [`ARCHITECTURE.md`](./ARCHITECTURE.md) | Monorepo layout, tech stack, data flow, design system |
+| [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) | Monorepo layout, tech stack, data flow, design system |
 | [`CLAUDE.md`](./CLAUDE.md) | Engineering rules (the constitution) |
 | [`PLAN.md`](./PLAN.md) | The eight-phase build plan, implement → test → ship |
 
@@ -53,4 +53,4 @@ API:
 
 ## What's deliberately out of scope
 
-QuickBooks sync, real outbound email, per-rep logins, monthly rollups (trends, departed-rep audits, end-of-month close), edits back to RoofLink, mobile layouts. Each of those has a clear migration path documented in [`SPEC.md`](./SPEC.md) and [`ARCHITECTURE.md`](./ARCHITECTURE.md).
+QuickBooks sync, real outbound email, per-rep logins, monthly rollups (trends, departed-rep audits, end-of-month close), edits back to RoofLink, mobile layouts. Each of those has a clear migration path documented in [`SPEC.md`](./SPEC.md) and [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md).
