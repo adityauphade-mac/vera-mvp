@@ -2,14 +2,17 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { computeNextRun, type Cadence } from '@/lib/cadence';
 import { sendBrief } from '@/app/api/brief/send/route';
+import { verifyCronAuth } from '@/lib/cron-auth';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 
 /**
- * Cron dispatch endpoint. Triggered every 15 min by the
- * `cron-dispatch-briefs.yml` GitHub Actions workflow with
- * `Authorization: Bearer $CRON_SECRET`.
+ * Cron dispatch endpoint. Triggered every 15 min by Upstash QStash, which
+ * signs each request with a JWT in the `upstash-signature` header.
+ * `verifyCronAuth` checks that signature against the QStash signing keys
+ * and also accepts a legacy `Authorization: Bearer $CRON_SECRET` as a
+ * fallback for manual / emergency triggering.
  *
  * ── At-most-once delivery ────────────────────────────────────────────────
  *
@@ -46,17 +49,10 @@ export const maxDuration = 60;
  */
 
 export async function POST(req: Request) {
-  // --- Auth ---
-  const expected = process.env.CRON_SECRET;
-  if (!expected) {
-    return NextResponse.json(
-      { error: 'CRON_SECRET not configured' },
-      { status: 500 },
-    );
-  }
-  const auth = req.headers.get('authorization') ?? '';
-  if (auth !== `Bearer ${expected}`) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  // --- Auth: QStash signature (preferred) or legacy Bearer (fallback) ---
+  const auth = await verifyCronAuth(req);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
 
   const now = new Date();
