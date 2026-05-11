@@ -21,3 +21,7 @@ coverage
 .DS_Store
 *.log
 .vercel
+# Claude Code agent workdir — keeps the manual `vercel --prod` upload from
+# trying to ship a worktree's copy of data/jobs_dedup.jsonl (would blow
+# past Vercel's 100 MB upload limit).
+.claude
