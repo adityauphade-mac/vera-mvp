@@ -11,6 +11,7 @@ import {
   History,
   RefreshCw,
   Search,
+  Sparkles,
   User as UserIcon,
   Wrench,
 } from 'lucide-react';
@@ -23,11 +24,20 @@ import {
   SelectTrigger,
   SelectValue,
   Sheet,
+  Skeleton,
+  Table,
+  TableCell,
+  TableHead,
+  TableRow,
+  TableShell,
   TablePagination,
+  type TableHeadCol,
 } from '@vera/ui';
 import {
   AUDIT_ACTIONS_BY_CATEGORY,
   AUDIT_CATEGORIES,
+  humanizeAction,
+  humanizeCategory,
   type AuditCategory,
   type AuditLogEntry,
 } from '@vera/types';
@@ -38,11 +48,20 @@ import {
  * reload + are shareable.
  *
  * Data is fetched from `GET /api/audit-logs` whenever filters or paging
- * change. The endpoint already enforces tenant scoping via the session
- * cookie, so this client never has to think about tenantId.
+ * change. The endpoint enforces tenant scoping via the session cookie.
  */
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 50 as const;
+const SEARCH_DEBOUNCE_MS = 300;
+
+const TABLE_COLUMNS: TableHeadCol[] = [
+  { key: 'time', label: 'Time' },
+  { key: 'who', label: 'Who' },
+  { key: 'category', label: 'Category' },
+  { key: 'action', label: 'Action' },
+  { key: 'summary', label: 'Summary' },
+  { key: 'chev', label: '' },
+];
 
 type ListResponse = {
   entries: AuditLogEntry[];
@@ -72,13 +91,13 @@ export function AuditLogsView() {
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<AuditLogEntry | null>(null);
 
-  // Build the query string from current filter state.
+  // Build the query string from current filter state. Debounced search
+  // gets applied here via the q state below.
   const queryString = useMemo(() => {
     const params = new URLSearchParams();
     if (category) params.set('category', category);
     if (action) params.set('action', action);
     if (q.trim()) params.set('q', q.trim());
-    // The API treats userId='' as "system actions only" (userId IS NULL).
     if (actor === 'system') params.set('userId', '');
     params.set('limit', String(PAGE_SIZE));
     params.set('offset', String(offset));
@@ -111,13 +130,11 @@ export function AuditLogsView() {
     fetchEntries();
   }, [fetchEntries]);
 
-  // Action dropdown options narrow when a category is selected.
   const actionOptions = useMemo(() => {
     if (!category) return Array.from(new Set(Object.values(AUDIT_ACTIONS_BY_CATEGORY).flat()));
     return [...AUDIT_ACTIONS_BY_CATEGORY[category]];
   }, [category]);
 
-  // Resetting paging when a filter changes keeps results sensible.
   const onCategoryChange = (next: AuditCategory | null) => {
     setCategory(next);
     setAction(null);
@@ -131,7 +148,7 @@ export function AuditLogsView() {
     setActor(next);
     setOffset(0);
   };
-  const onSearchSubmit = (next: string) => {
+  const onSearchChange = (next: string) => {
     setQ(next);
     setOffset(0);
   };
@@ -146,6 +163,9 @@ export function AuditLogsView() {
   const total = data?.total ?? 0;
   const entries = data?.entries ?? [];
   const hasFilters = !!(category || action || actor || q.trim());
+  // First-load skeleton vs subsequent refresh dim — `data === null`
+  // is the "we've never seen results yet" state.
+  const showSkeleton = loading && !data;
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">
@@ -183,7 +203,7 @@ export function AuditLogsView() {
                 <SelectItem value="__all">All categories</SelectItem>
                 {AUDIT_CATEGORIES.map((c) => (
                   <SelectItem key={c} value={c}>
-                    {c}
+                    {humanizeCategory(c)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -205,7 +225,7 @@ export function AuditLogsView() {
                 <SelectItem value="__all">All actions</SelectItem>
                 {actionOptions.map((a) => (
                   <SelectItem key={a} value={a}>
-                    {a}
+                    {humanizeAction(a)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -239,13 +259,15 @@ export function AuditLogsView() {
             <label className="text-text-muted text-[0.65rem] tracking-[0.2em] uppercase">
               Search summary
             </label>
-            <SearchBox value={q} onSubmit={onSearchSubmit} />
+            <DebouncedSearchInput value={q} onChange={onSearchChange} />
           </div>
         </div>
 
         <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
           <p className="text-text-muted text-xs">
-            {loading ? 'Loading…' : `${total.toLocaleString()} entries`}
+            {showSkeleton
+              ? 'Loading…'
+              : `${total.toLocaleString()} ${total === 1 ? 'entry' : 'entries'}`}
             {hasFilters ? ' · filters applied' : ''}
           </p>
           <div className="flex items-center gap-2">
@@ -269,86 +291,76 @@ export function AuditLogsView() {
       </Card>
 
       {/* Table */}
-      <Card className="vera-rise-delay-2 overflow-hidden p-0">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-border text-text-muted border-b text-left text-[0.65rem] tracking-[0.18em] uppercase">
-                <th className="px-5 py-3 whitespace-nowrap">Time</th>
-                <th className="px-5 py-3 whitespace-nowrap">Who</th>
-                <th className="px-5 py-3 whitespace-nowrap">Category</th>
-                <th className="px-5 py-3 whitespace-nowrap">Action</th>
-                <th className="px-5 py-3">Summary</th>
-                <th className="px-5 py-3" />
-              </tr>
-            </thead>
+      <div className="vera-rise-delay-2">
+        <TableShell
+          maxHeight={640}
+          footer={
+            <TableFooter
+              total={total}
+              offset={offset}
+              pageSize={PAGE_SIZE}
+              onPageChange={(next) => setOffset((next - 1) * PAGE_SIZE)}
+              loading={showSkeleton}
+            />
+          }
+        >
+          <Table>
+            <TableHead columns={TABLE_COLUMNS} />
             <tbody>
               {error ? (
-                <tr>
-                  <td colSpan={6} className="px-5 py-10 text-center">
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-10">
                     <p className="text-heat-critical text-sm">
                       Couldn&apos;t load audit log: {error}
                     </p>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
+              ) : showSkeleton ? (
+                <SkeletonRows />
               ) : entries.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-5 py-12 text-center">
+                <TableRow>
+                  <TableCell colSpan={6} className="py-12 text-center">
                     <History className="text-text-muted mx-auto mb-2 h-6 w-6" />
                     <p className="text-text-secondary text-sm">
                       {hasFilters
                         ? 'No entries match these filters.'
                         : 'No activity yet — actions you take will show up here.'}
                     </p>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ) : (
                 entries.map((row) => (
-                  <tr
+                  <TableRow
                     key={row.id}
                     onClick={() => setSelected(row)}
-                    className="border-border hover:bg-bg-base/60 cursor-pointer border-b transition-colors last:border-b-0"
+                    className="cursor-pointer"
                   >
-                    <td className="text-text-secondary px-5 py-3 whitespace-nowrap text-xs tabular-nums">
+                    <TableCell className="text-text-secondary whitespace-nowrap text-xs tabular-nums">
                       {formatTimestamp(row.createdAt)}
-                    </td>
-                    <td className="px-5 py-3 whitespace-nowrap">
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">
                       <ActorCell
                         userEmail={row.userEmail}
                         userId={row.userId}
                       />
-                    </td>
-                    <td className="px-5 py-3 whitespace-nowrap">
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">
                       <CategoryPill category={row.category as AuditCategory} />
-                    </td>
-                    <td className="text-text-secondary px-5 py-3 whitespace-nowrap font-mono text-xs">
-                      {row.action}
-                    </td>
-                    <td className="text-text-primary px-5 py-3">{row.summary}</td>
-                    <td className="text-text-muted px-5 py-3 whitespace-nowrap">
+                    </TableCell>
+                    <TableCell className="text-text-secondary whitespace-nowrap text-xs">
+                      {humanizeAction(row.action)}
+                    </TableCell>
+                    <TableCell className="text-text-primary">{row.summary}</TableCell>
+                    <TableCell className="text-text-muted whitespace-nowrap">
                       ›
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))
               )}
             </tbody>
-          </table>
-        </div>
-
-        {total > PAGE_SIZE ? (
-          <div className="border-border border-t">
-            <TablePagination
-              page={Math.floor(offset / PAGE_SIZE) + 1}
-              pageSize={PAGE_SIZE}
-              total={total}
-              onPageChange={(next) => setOffset((next - 1) * PAGE_SIZE)}
-              onPageSizeChange={() => {
-                /* page size fixed at 50 for V1 */
-              }}
-            />
-          </div>
-        ) : null}
-      </Card>
+          </Table>
+        </TableShell>
+      </div>
 
       <AuditDetailSheet
         entry={selected}
@@ -358,34 +370,129 @@ export function AuditLogsView() {
   );
 }
 
-function SearchBox({
+/**
+ * Debounced text input — fires `onChange` 300ms after the user stops
+ * typing. No Enter required. Styling matches the scheduler's email
+ * field so the audit log doesn't look like a different app.
+ */
+function DebouncedSearchInput({
   value,
-  onSubmit,
+  onChange,
 }: {
   value: string;
-  onSubmit: (next: string) => void;
+  onChange: (next: string) => void;
 }) {
   const [draft, setDraft] = useState(value);
+  // Keep local draft in sync if the URL state changes from elsewhere
+  // (e.g. Clear filters).
   useEffect(() => {
     setDraft(value);
   }, [value]);
+  // Debounce the propagation to parent.
+  useEffect(() => {
+    if (draft === value) return;
+    const t = setTimeout(() => onChange(draft), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [draft, value, onChange]);
   return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        onSubmit(draft);
-      }}
-      className="relative"
-    >
+    <div className="relative">
       <Search className="text-text-muted pointer-events-none absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2" />
       <input
-        type="search"
+        type="text"
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         placeholder="recipient, action verb, anything in the summary…"
         className="border-border focus:border-accent bg-bg-card text-text-primary placeholder:text-text-muted w-full rounded-xl border py-2.5 pr-3 pl-9 text-sm outline-none transition-colors"
       />
-    </form>
+    </div>
+  );
+}
+
+/**
+ * Footer strip: always shows "Showing X–Y of N", page controls only
+ * when there's more than one page. Mirrors the pattern in other
+ * dashboard tables.
+ */
+function TableFooter({
+  total,
+  offset,
+  pageSize,
+  onPageChange,
+  loading,
+}: {
+  total: number;
+  offset: number;
+  pageSize: number;
+  onPageChange: (page: number) => void;
+  loading: boolean;
+}) {
+  const page = Math.floor(offset / pageSize) + 1;
+  const startIdx = total === 0 ? 0 : offset + 1;
+  const endIdx = Math.min(offset + pageSize, total);
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  if (loading) {
+    return (
+      <div className="text-text-muted px-5 py-3 text-xs">
+        Loading entries…
+      </div>
+    );
+  }
+
+  if (totalPages > 1) {
+    return (
+      <TablePagination
+        page={page}
+        pageSize={pageSize as 10 | 25 | 50 | 100}
+        total={total}
+        onPageChange={onPageChange}
+        onPageSizeChange={() => {
+          /* fixed page size for V1 */
+        }}
+      />
+    );
+  }
+
+  return (
+    <div className="text-text-muted flex items-center justify-between px-5 py-3 text-xs">
+      <span>
+        {total === 0
+          ? 'No entries to show'
+          : `Showing ${startIdx}–${endIdx} of ${total}`}
+      </span>
+    </div>
+  );
+}
+
+/**
+ * Skeleton placeholder rows used while the very first response is in
+ * flight. Subsequent refetches (filter changes) keep the previous data
+ * on-screen with the table's refresh affordance spinning — no flicker.
+ */
+function SkeletonRows() {
+  return (
+    <>
+      {Array.from({ length: 6 }).map((_, i) => (
+        <TableRow key={i}>
+          <TableCell className="whitespace-nowrap">
+            <Skeleton className="h-3 w-20" />
+          </TableCell>
+          <TableCell className="whitespace-nowrap">
+            <Skeleton className="h-3 w-36" />
+          </TableCell>
+          <TableCell className="whitespace-nowrap">
+            <Skeleton className="h-4 w-16 rounded-full" />
+          </TableCell>
+          <TableCell className="whitespace-nowrap">
+            <Skeleton className="h-3 w-24" />
+          </TableCell>
+          <TableCell>
+            <Skeleton className="h-3 w-64" />
+          </TableCell>
+          <TableCell />
+        </TableRow>
+      ))}
+    </>
   );
 }
 
@@ -415,10 +522,12 @@ function ActorCell({
 function CategoryPill({ category }: { category: AuditCategory }) {
   return (
     <span className="border-border bg-bg-base text-text-muted rounded-full border px-2 py-0.5 text-[0.65rem] tracking-[0.14em] uppercase">
-      {category}
+      {humanizeCategory(category)}
     </span>
   );
 }
+
+// ─── Detail sheet ────────────────────────────────────────────────────────
 
 function AuditDetailSheet({
   entry,
@@ -439,47 +548,398 @@ function AuditDetailSheet({
       widthClass="max-w-2xl"
     >
       {entry ? (
-        <div className="space-y-5 text-sm">
-          <DetailGrid entry={entry} />
-          {entry.details ? (
-            <div className="space-y-2">
-              <p className="text-text-muted text-[0.65rem] tracking-[0.2em] uppercase">
-                Details
-              </p>
-              <pre className="border-border bg-bg-base text-text-secondary max-h-96 overflow-auto rounded-xl border p-3 text-[11px] leading-relaxed">
-                {JSON.stringify(entry.details, null, 2)}
-              </pre>
-            </div>
-          ) : null}
+        <div className="space-y-6 text-sm">
+          <CategoryDetailBody entry={entry} />
+          <DetailMetadata entry={entry} />
+          <RawDetailsDisclosure details={entry.details} />
         </div>
       ) : null}
     </Sheet>
   );
 }
 
-function DetailGrid({ entry }: { entry: AuditLogEntry }) {
-  const rows: Array<[string, string]> = [
-    ['Category', entry.category],
-    ['Action', entry.action],
-    ['Who', entry.userId === null ? 'system' : (entry.userEmail ?? `user #${entry.userId}`)],
-    ['Tenant', String(entry.tenantId)],
-  ];
-  if (entry.entityType) rows.push(['Entity type', entry.entityType]);
-  if (entry.entityId) rows.push(['Entity id', entry.entityId]);
-  rows.push(['Audit id', String(entry.id)]);
+/**
+ * Pick the right human-readable body for an entry based on category +
+ * action. Each branch is a small render. Fallback for forward-compat
+ * is "no extra detail".
+ */
+function CategoryDetailBody({ entry }: { entry: AuditLogEntry }) {
+  if (entry.category === 'schedule') return <ScheduleBody entry={entry} />;
+  if (entry.category === 'brief') return <BriefBody entry={entry} />;
+  if (entry.category === 'briefing') return <BriefingBody entry={entry} />;
+  if (entry.category === 'chat') return <ChatBody entry={entry} />;
+  if (entry.category === 'auth') return <AuthBody entry={entry} />;
+  return null;
+}
+
+function ScheduleBody({ entry }: { entry: AuditLogEntry }) {
+  const d = (entry.details ?? {}) as { before?: Schedule | null; after?: Schedule | null };
+  const before = d.before ?? null;
+  const after = d.after ?? null;
+
+  if (entry.action === 'updated' && before && after) {
+    // Diff table — only show fields that changed.
+    const rows: Array<[string, string, string]> = [];
+    if (before.recipient !== after.recipient)
+      rows.push(['Recipient', before.recipient, after.recipient]);
+    if (before.timeLocal !== after.timeLocal)
+      rows.push(['Time', before.timeLocal, after.timeLocal]);
+    if ((before.dayOfWeek ?? null) !== (after.dayOfWeek ?? null))
+      rows.push(['Day of week', String(before.dayOfWeek ?? '—'), String(after.dayOfWeek ?? '—')]);
+    if ((before.dayOfMonth ?? null) !== (after.dayOfMonth ?? null))
+      rows.push(['Day of month', String(before.dayOfMonth ?? '—'), String(after.dayOfMonth ?? '—')]);
+    if (rows.length === 0) {
+      return <DetailLine>No tracked fields changed.</DetailLine>;
+    }
+    return (
+      <DiffTable
+        headerLabels={['Field', 'Before', 'After']}
+        rows={rows}
+      />
+    );
+  }
+
+  // For created / paused / resumed / deleted — show the row at a glance.
+  const snapshot = after ?? before;
+  if (!snapshot) return null;
   return (
     <div className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2">
-      {rows.map(([label, value]) => (
-        <div key={label} className="contents">
-          <p className="text-text-muted text-[0.65rem] tracking-[0.2em] uppercase">
-            {label}
-          </p>
-          <p className="text-text-secondary text-xs">{value}</p>
-        </div>
-      ))}
+      <DetailLabel>Cadence</DetailLabel>
+      <DetailValue>{snapshot.cadence}</DetailValue>
+      <DetailLabel>Recipient</DetailLabel>
+      <DetailValue>{snapshot.recipient}</DetailValue>
+      <DetailLabel>Time</DetailLabel>
+      <DetailValue>
+        {snapshot.timeLocal} {snapshot.timezone}
+      </DetailValue>
+      {snapshot.dayOfWeek !== null && snapshot.dayOfWeek !== undefined ? (
+        <>
+          <DetailLabel>Day of week</DetailLabel>
+          <DetailValue>{snapshot.dayOfWeek}</DetailValue>
+        </>
+      ) : null}
+      {snapshot.dayOfMonth ? (
+        <>
+          <DetailLabel>Day of month</DetailLabel>
+          <DetailValue>{snapshot.dayOfMonth}</DetailValue>
+        </>
+      ) : null}
+      <DetailLabel>Enabled</DetailLabel>
+      <DetailValue>{snapshot.enabled ? 'Yes' : 'No (paused)'}</DetailValue>
     </div>
   );
 }
+
+function BriefBody({ entry }: { entry: AuditLogEntry }) {
+  const d = (entry.details ?? {}) as {
+    to?: string;
+    cadence?: string;
+    subject?: string;
+    pdfBytes?: number;
+    resendId?: string;
+    recipient?: string;
+    outcome?: { status?: string; resendId?: string; pdfBytes?: number };
+    error?: { code?: string; message?: string } | string;
+    request?: { to?: string };
+  };
+  if (entry.action === 'send_failed') {
+    const err =
+      typeof d.error === 'string'
+        ? d.error
+        : (d.error?.message ?? d.error?.code ?? 'Unknown error');
+    return (
+      <div className="space-y-3">
+        <div className="border-heat-critical/40 bg-heat-critical/5 rounded-xl border px-3 py-2">
+          <p className="text-text-primary text-xs">{err}</p>
+        </div>
+        {d.request?.to ? (
+          <div className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2">
+            <DetailLabel>Attempted recipient</DetailLabel>
+            <DetailValue>{d.request.to}</DetailValue>
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+  const to = d.to ?? d.recipient ?? '—';
+  const pdfBytes = d.pdfBytes ?? d.outcome?.pdfBytes;
+  const resendId = d.resendId ?? d.outcome?.resendId;
+  return (
+    <div className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2">
+      <DetailLabel>To</DetailLabel>
+      <DetailValue>{to}</DetailValue>
+      {d.cadence ? (
+        <>
+          <DetailLabel>Cadence</DetailLabel>
+          <DetailValue>{d.cadence}</DetailValue>
+        </>
+      ) : null}
+      {d.subject ? (
+        <>
+          <DetailLabel>Subject</DetailLabel>
+          <DetailValue>{d.subject}</DetailValue>
+        </>
+      ) : null}
+      {pdfBytes ? (
+        <>
+          <DetailLabel>PDF size</DetailLabel>
+          <DetailValue>{(pdfBytes / 1024).toFixed(1)} KB</DetailValue>
+        </>
+      ) : null}
+      {resendId ? (
+        <>
+          <DetailLabel>Resend ID</DetailLabel>
+          <DetailValue className="font-mono text-[11px]">{resendId}</DetailValue>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+function BriefingBody({ entry }: { entry: AuditLogEntry }) {
+  const d = (entry.details ?? {}) as {
+    headline?: string;
+    model?: string;
+    sources?: { count?: number };
+    error?: string;
+  };
+  if (entry.action === 'generation_failed') {
+    return (
+      <div className="border-heat-critical/40 bg-heat-critical/5 rounded-xl border px-3 py-2">
+        <p className="text-text-primary text-xs">{d.error ?? 'Generation failed'}</p>
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-3">
+      {d.headline ? (
+        <div className="border-border bg-bg-base/60 flex items-start gap-2 rounded-xl border px-3 py-2.5">
+          <Sparkles className="text-accent mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <p className="text-text-primary text-sm leading-relaxed">{d.headline}</p>
+        </div>
+      ) : null}
+      <div className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2">
+        {d.model ? (
+          <>
+            <DetailLabel>Model</DetailLabel>
+            <DetailValue>{d.model}</DetailValue>
+          </>
+        ) : null}
+        {typeof d.sources?.count === 'number' ? (
+          <>
+            <DetailLabel>Sources</DetailLabel>
+            <DetailValue>
+              {d.sources.count} {d.sources.count === 1 ? 'item' : 'items'} (NWS alerts + news)
+            </DetailValue>
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function ChatBody({ entry }: { entry: AuditLogEntry }) {
+  const d = (entry.details ?? {}) as {
+    messages?: Array<{ role?: string; content?: unknown }>;
+    model?: string;
+  };
+  const messages = Array.isArray(d.messages) ? d.messages : [];
+  return (
+    <div className="space-y-3">
+      <div className="space-y-2">
+        {messages.map((m, i) => {
+          const role = m.role ?? 'user';
+          const text =
+            typeof m.content === 'string'
+              ? m.content
+              : Array.isArray(m.content)
+                ? m.content
+                    .map((p) =>
+                      typeof p === 'object' && p && 'text' in p
+                        ? String((p as { text: unknown }).text ?? '')
+                        : '',
+                    )
+                    .join(' ')
+                : '';
+          return (
+            <div
+              key={i}
+              className={
+                role === 'user'
+                  ? 'border-accent/20 bg-accent/5 rounded-xl border px-3 py-2'
+                  : 'border-border bg-bg-base/60 rounded-xl border px-3 py-2'
+              }
+            >
+              <p className="text-text-muted mb-1 text-[0.6rem] tracking-[0.18em] uppercase">
+                {role}
+              </p>
+              <p className="text-text-primary text-sm leading-relaxed whitespace-pre-wrap">
+                {text || '(no text)'}
+              </p>
+            </div>
+          );
+        })}
+        {messages.length === 0 ? (
+          <DetailLine>(No transcript captured.)</DetailLine>
+        ) : null}
+      </div>
+      {d.model ? (
+        <div className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2">
+          <DetailLabel>Model</DetailLabel>
+          <DetailValue>{d.model}</DetailValue>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function AuthBody({ entry }: { entry: AuditLogEntry }) {
+  const d = (entry.details ?? {}) as {
+    provider?: string;
+    isNewUser?: boolean;
+  };
+  return (
+    <div className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2">
+      {d.provider ? (
+        <>
+          <DetailLabel>Provider</DetailLabel>
+          <DetailValue>{d.provider}</DetailValue>
+        </>
+      ) : null}
+      {typeof d.isNewUser === 'boolean' ? (
+        <>
+          <DetailLabel>First sign-in?</DetailLabel>
+          <DetailValue>{d.isNewUser ? 'Yes' : 'No'}</DetailValue>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+function DetailMetadata({ entry }: { entry: AuditLogEntry }) {
+  return (
+    <div className="border-border border-t pt-4">
+      <p className="text-text-muted mb-2 text-[0.6rem] tracking-[0.2em] uppercase">
+        Metadata
+      </p>
+      <div className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-1.5">
+        <DetailLabel>Category</DetailLabel>
+        <DetailValue>{humanizeCategory(entry.category)}</DetailValue>
+        <DetailLabel>Action</DetailLabel>
+        <DetailValue>{humanizeAction(entry.action)}</DetailValue>
+        <DetailLabel>Who</DetailLabel>
+        <DetailValue>
+          {entry.userId === null
+            ? 'system'
+            : (entry.userEmail ?? `user #${entry.userId}`)}
+        </DetailValue>
+        {entry.entityType ? (
+          <>
+            <DetailLabel>Entity</DetailLabel>
+            <DetailValue>
+              {entry.entityType}
+              {entry.entityId ? ` #${entry.entityId}` : ''}
+            </DetailValue>
+          </>
+        ) : null}
+        <DetailLabel>Audit id</DetailLabel>
+        <DetailValue>{entry.id}</DetailValue>
+      </div>
+    </div>
+  );
+}
+
+function RawDetailsDisclosure({ details }: { details: unknown }) {
+  if (!details) return null;
+  return (
+    <details className="border-border border-t pt-4">
+      <summary className="text-text-muted hover:text-text-secondary cursor-pointer text-[0.65rem] tracking-[0.2em] uppercase select-none">
+        Show raw audit JSON
+      </summary>
+      <pre className="border-border bg-bg-base text-text-secondary mt-2 max-h-96 overflow-auto rounded-xl border p-3 text-[11px] leading-relaxed">
+        {JSON.stringify(details, null, 2)}
+      </pre>
+    </details>
+  );
+}
+
+// ─── Tiny presentational primitives ──────────────────────────────────────
+
+function DetailLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-text-muted text-[0.65rem] tracking-[0.2em] uppercase">
+      {children}
+    </p>
+  );
+}
+
+function DetailValue({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <p className={`text-text-secondary text-xs ${className ?? ''}`}>{children}</p>
+  );
+}
+
+function DetailLine({ children }: { children: React.ReactNode }) {
+  return <p className="text-text-muted text-xs italic">{children}</p>;
+}
+
+function DiffTable({
+  headerLabels,
+  rows,
+}: {
+  headerLabels: [string, string, string];
+  rows: Array<[string, string, string]>;
+}) {
+  return (
+    <div className="border-border overflow-hidden rounded-xl border">
+      <table className="w-full text-sm">
+        <thead className="bg-bg-base">
+          <tr>
+            {headerLabels.map((l) => (
+              <th
+                key={l}
+                className="text-text-muted px-3 py-2 text-left text-[0.6rem] font-semibold tracking-[0.15em] uppercase"
+              >
+                {l}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(([field, before, after]) => (
+            <tr key={field} className="border-border border-t">
+              <td className="text-text-secondary px-3 py-2 text-xs">{field}</td>
+              <td className="text-text-muted px-3 py-2 text-xs line-through">
+                {before}
+              </td>
+              <td className="text-text-primary px-3 py-2 text-xs">{after}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// ─── Schedule snapshot type (loose; details JSON is unknown shape) ───────
+
+type Schedule = {
+  cadence: string;
+  recipient: string;
+  timeLocal: string;
+  timezone: string;
+  dayOfWeek?: number | null;
+  dayOfMonth?: string | null;
+  enabled: boolean;
+};
+
+// ─── Time formatters ─────────────────────────────────────────────────────
 
 function formatTimestamp(iso: string): string {
   const d = new Date(iso);

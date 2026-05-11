@@ -82,6 +82,71 @@ export const AuditLogQuerySchema = z.object({
 export type AuditLogQuery = z.infer<typeof AuditLogQuerySchema>;
 
 /**
+ * Human-readable labels for the UI. Keep these in sync with the
+ * catalog above — adding a new category/action means adding a label
+ * here too. The audit-log table cells and the detail sheet both read
+ * from these maps.
+ */
+export const AUDIT_CATEGORY_LABEL: Record<AuditCategory, string> = {
+  auth: 'Auth',
+  schedule: 'Schedule',
+  brief: 'Brief',
+  briefing: 'Briefing',
+  chat: 'Chat',
+};
+
+/**
+ * Verb labels per category. Slightly contextual so the operator
+ * reading the column doesn't see ambiguous past tenses:
+ *
+ *   - `brief.sent_now`      → "Sent (manual)"
+ *   - `brief.sent_scheduled`→ "Sent (scheduled)"
+ *   - `chat.asked`          → "Asked"
+ *
+ * Falls back to a Title Case version of the raw action string when
+ * an entry is missing — so forward-compat for new actions doesn't
+ * silently regress UI quality.
+ */
+const ACTION_LABELS: Record<string, string> = {
+  // auth
+  signed_in: 'Signed in',
+  signed_out: 'Signed out',
+  user_created: 'User created',
+  // schedule
+  created: 'Created',
+  updated: 'Updated',
+  paused: 'Paused',
+  resumed: 'Resumed',
+  deleted: 'Deleted',
+  // brief
+  sent_now: 'Sent (manual)',
+  sent_scheduled: 'Sent (scheduled)',
+  send_failed: 'Send failed',
+  // briefing
+  regenerated: 'Regenerated',
+  generated_daily: 'Generated (daily)',
+  generation_failed: 'Generation failed',
+  // chat
+  asked: 'Asked',
+};
+
+export function humanizeAction(action: string): string {
+  const hit = ACTION_LABELS[action];
+  if (hit) return hit;
+  // Fallback: snake_case → "Snake case" → "Snake Case"
+  return action
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+export function humanizeCategory(category: AuditCategory | string): string {
+  if (category in AUDIT_CATEGORY_LABEL) {
+    return AUDIT_CATEGORY_LABEL[category as AuditCategory];
+  }
+  return category.charAt(0).toUpperCase() + category.slice(1);
+}
+
+/**
  * Shape of a recordAudit() call. The Prisma extension also builds this
  * shape internally for auto-logged rows.
  */
