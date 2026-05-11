@@ -2,15 +2,15 @@
 
 What's been deployed to production, when, and what's pending.
 
-> Last updated: May 8, 2026.
+> Last updated: May 11, 2026.
 
 ---
 
 ## Currently in production
 
 - **URL:** https://vera-mvp.vercel.app
-- **Last verified deploy:** `vera-8znwayap6-aditya-uphades-projects.vercel.app` (built 2026-05-08 13:54 IST = 08:24 UTC)
-- **Branch deployed:** `main` (post PR #6 merge)
+- **Last verified deploy:** see Vercel dashboard for the active production deployment.
+- **Branch deployed:** `main`
 - **Smoke checks passing:** see [`OPERATIONS.md`](./OPERATIONS.md#deploy-to-production)
 
 ---
@@ -44,6 +44,43 @@ runtime today:
 
 Reverse-chronological. Each entry has the merge SHA on `main`, the date,
 and a short summary of user-visible behavior change.
+
+### PR #13 · 2026-05-11 — Scheduler natural-key + QStash migration
+
+Two compounding bugs fixed in one PR.
+
+**Scheduler was duplicating rows.** Every save on the scheduler page
+POSTed a new `Schedule` row. Eleven daily rows had accumulated for
+tenant 1 by May 10, and a single dispatch tick was firing 8 emails at
+once. Fix: enforced `(tenantId, cadence)` as a DB-level natural key
+(unique index), rewrote the API as `PUT/DELETE /api/schedules/[cadence]`
+(upsert/delete on the natural key), and rebuilt the scheduler UI around
+three explicit states (Unscheduled / Scheduled / Paused) with one
+primary action each. Pausing now fires an immediate optimistic PUT to
+the server — no more "I toggled off but it still says scheduled"
+dead-end. Form stays editable when paused. Save is dirty-aware. Remove
+is a quieter ghost button. Paused cards dim to 60% opacity for
+at-a-glance scanning.
+
+**Cron was unreliable.** GitHub Actions cron was delivering ~5% of the
+96 ticks/day we asked for, with multi-hour gaps. Migrated to Upstash
+QStash, which fires within seconds of any cron tick. Added
+`apps/web/lib/cron-auth.ts` that verifies QStash JWT signatures via
+`@upstash/qstash` against `QSTASH_CURRENT_SIGNING_KEY` /
+`QSTASH_NEXT_SIGNING_KEY`. A legacy `Authorization: Bearer $CRON_SECRET`
+fallback is retained for manual `curl` triggering. Two QStash schedules
+now drive the cron: `dispatch-briefs` at `*/5 * * * *` (every 5 min),
+`generate-briefings` at `0 12 * * 1-5` (12:00 UTC Mon–Fri).
+
+**Cleanup.** The two `.github/workflows/cron-*.yml` files are deleted —
+replaced entirely by QStash schedules. The "Automatic dispatch may be
+delayed" warning banner is removed from the scheduler page; the cron
+is now reliable enough that the disclaimer is misleading. All docs
+referencing GitHub Actions cron updated to QStash.
+
+User-visible change: emails arrive within ~5 minutes of their scheduled
+time, every time. Editing a scheduled cadence's recipient now replaces
+the row in place — no more duplicate sends.
 
 ### `614e7312` · 2026-05-08 09:28 UTC — `fix(cron): stagger dispatch trigger off the round-minute boundary`
 

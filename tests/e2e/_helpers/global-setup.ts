@@ -6,9 +6,10 @@ import { join } from 'node:path';
  * Playwright global setup. Runs once before the suite.
  *
  * - Wipes the `Briefing` table so spec assertions about State-A vs State-C
- *   are deterministic. Specs that want a briefing present should mock the
- *   regenerate API and click Fetch themselves; specs that want State A
- *   start clean.
+ *   are deterministic.
+ * - Wipes the `Schedule` table so scheduler specs start from a known empty
+ *   state (the natural-key unique index means a stale row from a prior run
+ *   would block PUTs that expect to be the first write).
  *
  * No-op if DATABASE_URL is unset (DB-less local runs of public-route specs).
  */
@@ -21,18 +22,19 @@ export default async function globalSetup(): Promise<void> {
   }
 
   try {
-    // `pnpm --filter` cd's into apps/web, so the schema path is relative to
-    // that workspace.
     execSync(
       `pnpm --filter @vera/web exec prisma db execute --schema prisma/schema.prisma --stdin`,
       {
-        input: 'DELETE FROM "Briefing";\n',
+        // SendLog.scheduleId is ON DELETE SET NULL, so historical send rows
+        // survive the Schedule wipe with their tenantId/cadence/recipient
+        // intact — only the FK back-reference is nulled.
+        input: 'DELETE FROM "Briefing";\nDELETE FROM "Schedule";\n',
         env: { ...process.env, DATABASE_URL: dbUrl },
         stdio: ['pipe', 'ignore', 'inherit'],
       },
     );
     // eslint-disable-next-line no-console
-    console.log('[playwright] cleared Briefing table');
+    console.log('[playwright] cleared Briefing and Schedule tables');
   } catch (e) {
     // eslint-disable-next-line no-console
     console.warn('[playwright] DB reset failed — specs may be non-deterministic:', e);

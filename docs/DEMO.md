@@ -61,21 +61,22 @@ narration template during it.
 
 ### Minute 5 — Scheduler + delivery (90s)
 
-> **Say:** *"Email delivery for the daily AR brief is real. Resend, verified domain. Pick a time, Vera fires the brief automatically every weekday."*
+> **Say:** *"Email delivery for the daily AR brief is real. Resend, verified domain. Pick a time, Vera fires the brief automatically every weekday — recurring delivery worst-case lateness is ~5 minutes."*
 
 1. Sidebar → **Scheduler**
-2. Point out the **amber banner at the top** — *"Automatic dispatch may be delayed"*
-3. **Acknowledge the limitation:** *"Recurring auto-fire runs on GitHub Actions cron. New repos sit in a multi-hour onboarding throttle before their first scheduled run picks up. We're inside that window today."*
-4. Demo **Send now** instead — fires immediately:
-   - Type recipient
+2. Walk through the three cadences — **Daily AR brief**, **Weekly summary**, **Monthly close** — and the three states each can be in: *Not scheduled*, *Scheduled*, *Paused* (paused rows are visibly dimmed).
+3. **Schedule the daily brief:** type recipient, pick a time, click **Schedule**. Pill flips to **Scheduled** with the next-run timestamp. Toggle the switch to pause and back to resume — both fire an immediate server update.
+4. Demo **Send now** as the "I need it right this second" path:
+   - Type recipient (or use the existing one)
    - Click **Send now**
    - Email lands in inbox in ~5 seconds
-5. *(Optional)* Show a live manual trigger: in your terminal,
+5. *(Optional)* Show a live manual trigger of the recurring dispatcher:
    ```
-   gh workflow run cron-dispatch-briefs.yml --repo adityauphade-mac/vera-mvp
+   curl -X POST https://vera-mvp.vercel.app/api/cron/dispatch-briefs \
+     -H "Authorization: Bearer $CRON_SECRET"
    ```
-   Then refresh the GitHub Actions tab and watch the run complete in 15s.
-   Same code path the auto-cron uses.
+   Watch the QStash logs in the Upstash console — same code path the
+   scheduled `*/5 * * * *` cron runs.
 
 ---
 

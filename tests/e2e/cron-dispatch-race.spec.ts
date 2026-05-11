@@ -46,11 +46,12 @@ test.describe('Cron dispatch — race conditions', () => {
     await sql(`DELETE FROM "Schedule" WHERE recipient = '${RACE_TEST_RECIPIENT}';`);
 
     // 1. Create a schedule via the auth-gated API (proves the contract).
+    //    PUT is upsert keyed on (tenantId, cadence) — the DELETE above
+    //    leaves us in a clean state, so this PUT creates a fresh row.
     const ctx = await browser.newContext();
     await signInAs(ctx);
-    const created = await ctx.request.post('/api/schedules', {
+    const created = await ctx.request.put('/api/schedules/daily', {
       data: {
-        cadence: 'daily',
         timeLocal: '08:00',
         timezone: 'America/Chicago',
         recipient: RACE_TEST_RECIPIENT,

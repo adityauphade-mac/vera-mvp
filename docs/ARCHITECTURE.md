@@ -1,6 +1,6 @@
 # Vera MVP — Architecture & Tech Stack
 
-> Last updated: May 8, 2026.
+> Last updated: May 11, 2026.
 
 ## At a glance
 
@@ -11,7 +11,7 @@
 - **Auth**: Auth.js v5 + Google OAuth, JWT session strategy, `/dashboard/*` gated by middleware.
 - **AI**: OpenAI gpt-4o for the morning briefing, gpt-4o-mini for chat.
 - **Email**: Resend, verified sender domain `makanalytics.org`.
-- **Cron**: two GitHub Actions workflows hit Vercel routes — recurring dispatcher (every 15 min staggered) + daily AI briefing regenerator.
+- **Cron**: two **Upstash QStash** schedules hit Vercel routes — recurring dispatcher (every 5 min) + daily AI briefing regenerator (Mon–Fri 12:00 UTC). Inbound requests are JWT-signed by QStash and verified via `lib/cron-auth.ts`.
 - **End-to-end tests** via Playwright — 96 specs, JWT-cookie helper for auth-gated specs, opt-in flags for live-network tests.
 - **Deployed** to Vercel (`vera-mvp.vercel.app`).
 
@@ -89,10 +89,6 @@ israil_mvp/
 │       ├── _helpers/                     # auth.ts (JWT cookie minter), global-setup.ts (DB reset)
 │       ├── *.spec.ts                     # Playwright specs — see docs/TESTING.md for the coverage map
 │       └── audit-screens/                # gitignored output of visual specs
-│
-├── .github/workflows/
-│   ├── cron-dispatch-briefs.yml          # */15 (staggered: 7,22,37,52)
-│   └── cron-generate-briefings.yml       # 0 12 * * 1-5 (~7am Central)
 │
 ├── data/                                 # gitignored — input + generated artifacts
 │   ├── jobs_dedup.jsonl                  # source export (raw)
@@ -179,7 +175,7 @@ israil_mvp/
 | Item | Purpose |
 |---|---|
 | Vercel | Hosting + CI/CD; auto-deploys on push to `main` |
-| GitHub Actions | Cron triggers (no other CI today) |
+| Upstash QStash | Cron triggers (dispatch every 5 min + daily AI briefing) |
 
 ---
 
@@ -246,21 +242,25 @@ same code at build time and at request time.
 
 ## Cron & scheduling
 
-Two GitHub Actions workflows in `.github/workflows/`:
+Two Upstash QStash schedules, configured in the Upstash dashboard:
 
-| Workflow | Cron | Calls |
+| QStash schedule | Cron | Calls |
 |---|---|---|
-| `cron-dispatch-briefs.yml` | `7,22,37,52 * * * *` (UTC) | `POST /api/cron/dispatch-briefs` |
-| `cron-generate-briefings.yml` | `0 12 * * 1-5` (UTC, ≈7am Central) | `POST /api/cron/generate-briefings` |
+| `dispatch-briefs` | `*/5 * * * *` (UTC) | `POST /api/cron/dispatch-briefs` |
+| `generate-briefings` | `0 12 * * 1-5` (UTC, ≈7am Central) | `POST /api/cron/generate-briefings` |
 
-Both authenticate with `Authorization: Bearer ${{ secrets.CRON_SECRET }}`
-matched against the same value on Vercel.
+QStash signs each request with a JWT in the `upstash-signature` header.
+`apps/web/lib/cron-auth.ts` verifies it against
+`QSTASH_CURRENT_SIGNING_KEY` / `QSTASH_NEXT_SIGNING_KEY` (both must be
+set so QStash can rotate keys without an outage). For manual testing,
+the helper also accepts a legacy `Authorization: Bearer $CRON_SECRET`
+fallback.
 
 **The dispatcher is at-most-once.** It claims due `Schedule` rows via
 an atomic Postgres UPDATE guarded by the original `nextRunAt`. Two
 concurrent dispatches will only cause one send. Verified by
 `tests/e2e/cron-dispatch-race.spec.ts`. See `docs/OPERATIONS.md` for the
-sequence diagram.
+sequence diagram and the QStash management runbook.
 
 ---
 

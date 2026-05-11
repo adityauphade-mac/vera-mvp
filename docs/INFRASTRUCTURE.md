@@ -3,14 +3,14 @@
 The high-level map of what's deployed, where it runs, and how the pieces talk
 to each other. If you're new to the project, start here.
 
-> Last updated: May 8, 2026.
+> Last updated: May 11, 2026.
 
 ---
 
 ## At a glance
 
 Vera is a single Next.js app deployed on Vercel, backed by a Postgres database
-on Neon, with two GitHub Actions workflows acting as a cron scheduler. Email
+on Neon, with two Upstash QStash schedules acting as the cron scheduler. Email
 delivery goes through Resend. AI content (the morning briefing) comes from
 OpenAI. Sign-in is Google OAuth via Auth.js.
 
@@ -19,7 +19,7 @@ There is one tenant today: **Priority Roofs · Dallas**.
 ```mermaid
 flowchart LR
     User[GM in browser]
-    GH[GitHub Actions cron]
+    QS[Upstash QStash]
 
     subgraph Vercel ["Vercel — vera-mvp.vercel.app"]
       Web[Next.js app
@@ -35,9 +35,10 @@ flowchart LR
     Web -->|sessions, briefings,
     schedules, send log| DB
 
-    GH -->|every 15 min,
-    bearer auth| Web
-    GH -->|daily 7am CT| Web
+    QS -->|every 5 min,
+    signed POST| Web
+    QS -->|daily 12:00 UTC,
+    signed POST| Web
 
     Web -->|gpt-4o| OpenAI[OpenAI]
     Web -->|alerts| NWS[National Weather Service]
@@ -54,7 +55,7 @@ flowchart LR
 |---|---|---|
 | Web app | Vercel (vera-mvp.vercel.app) | Next.js 16 App Router, Node runtime |
 | Database | Neon (Vercel-managed integration) | Postgres for sessions, briefings, schedules, send log |
-| Cron | GitHub Actions | Free, reliable. Two workflow files in `.github/workflows/` |
+| Cron | Upstash QStash | Reliable sub-hour scheduling. Replaced GitHub Actions cron on May 11 — see release note. |
 | Email | Resend | Verified sender domain `makanalytics.org` |
 | AI | OpenAI gpt-4o (briefing) + gpt-4o-mini (chat) | The model writes the morning briefing and answers chat |
 | News context | NWS (free) + NewsAPI | Storm alerts and roofing-industry headlines weave into the briefing |
@@ -180,7 +181,9 @@ development. Never committed.
 | `DATABASE_URL` (+ `POSTGRES_*`) | Prisma client | Neon-managed, set automatically by Vercel integration |
 | `OPENAI_API_KEY` | Briefing generator + chat | gpt-4o + gpt-4o-mini |
 | `NEWSAPI_KEY` | News context for briefing | Free tier OK |
-| `CRON_SECRET` | Bearer for cron routes | Also set as a **GitHub repo secret** |
+| `CRON_SECRET` | Legacy bearer fallback for cron routes | Still accepted by `verifyCronAuth` for manual `curl` triggering |
+| `QSTASH_CURRENT_SIGNING_KEY` | Verifies inbound QStash requests | From Upstash QStash console |
+| `QSTASH_NEXT_SIGNING_KEY` | Verifies inbound QStash requests during key rotation | Both keys must be set so QStash can rotate without an outage |
 | `RESEND_API_KEY` | Email sending | Israel's Resend account |
 | `EMAIL_FROM` | Resend sender | `Vera <vera@makanalytics.org>` (verified domain) |
 
@@ -188,13 +191,16 @@ development. Never committed.
 
 ## Cron schedules
 
-Both workflows live in `.github/workflows/` and are triggered by GitHub
-Actions runners.
+Two Upstash QStash schedules, configured in the Upstash dashboard, hit the
+Vercel cron routes. Each request is signed by QStash with a JWT in the
+`upstash-signature` header; the routes verify it via `lib/cron-auth.ts`
+against `QSTASH_CURRENT_SIGNING_KEY` / `QSTASH_NEXT_SIGNING_KEY`.
 
 ```mermaid
 flowchart LR
-    subgraph "Every 15 min"
-      A[cron-dispatch-briefs.yml] -->|bearer| B[/api/cron/dispatch-briefs/]
+    subgraph "Every 5 min"
+      A[QStash schedule
+      dispatch-briefs] -->|signed POST| B[/api/cron/dispatch-briefs/]
       B --> C{Any Schedule rows
       with nextRunAt ≤ now?}
       C -->|yes| D[Claim row · advance nextRunAt
@@ -203,21 +209,23 @@ flowchart LR
     end
 
     subgraph "Weekdays 7am CT"
-      F[cron-generate-briefings.yml] -->|bearer| G[/api/cron/generate-briefings/]
+      F[QStash schedule
+      generate-briefings] -->|signed POST| G[/api/cron/generate-briefings/]
       G --> H[For each tenant:
       generate fresh AI briefing
       · write Briefing row]
     end
 ```
 
-| Workflow | Schedule | What it does |
+| Schedule | Cron expression | What it does |
 |---|---|---|
-| `cron-dispatch-briefs.yml` | `7,22,37,52 * * * *` | Polls for due `Schedule` rows and fires the email for each. Staggered off the round-minute boundary on purpose — GitHub queues `*/N` crons globally and round minutes (`:00 :15 :30 :45`) are heavily contended. |
-| `cron-generate-briefings.yml` | `0 12 * * 1-5` | Regenerates the AI dashboard briefing for each tenant (≈7am Central). |
+| `dispatch-briefs` | `*/5 * * * *` | Polls for due `Schedule` rows and fires the email for each. QStash fires within seconds of the tick, so worst-case lateness is bounded by the 5-min interval. |
+| `generate-briefings` | `0 12 * * 1-5` | Regenerates the AI dashboard briefing for each tenant (≈7am Central). |
 
-GitHub-cron drift is normal (1–3 min typical, occasionally up to 15 min during
-high load). The dispatcher tolerates this — it claims any `Schedule` row whose
-`nextRunAt` has passed, so a delayed cron just fires due rows slightly late.
+QStash schedules are managed in the Upstash QStash console (or via the
+`/v2/schedules` REST API). See [docs/OPERATIONS.md](OPERATIONS.md) for the
+full operator runbook — including how to manually trigger the dispatcher
+for testing.
 
 ---
 
@@ -228,11 +236,11 @@ flowchart TB
     Dev[Local laptop] -->|git push origin main| Repo[adityauphade-mac/vera-mvp]
     Repo -->|webhook| Vercel
     Vercel -->|build + deploy| Prod[vera-mvp.vercel.app]
-    Repo -->|workflow files
-    in default branch| GH[GitHub Actions]
+    QStash[Upstash QStash
+    schedules] -->|signed POST
+    every 5 min + daily| Prod
 
     Prod -.->|reads/writes| Neon
-    GH -.->|bearer auth call| Prod
 ```
 
 - Push to `main` → Vercel builds + deploys automatically.

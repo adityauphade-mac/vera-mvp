@@ -20,17 +20,21 @@ shape, and response shape that's actually deployed today.
 | [`/api/reps/outstanding`](#repsoutstanding) | GET | open | Per-rep leaderboard |
 | [`/api/briefings/regenerate`](#briefingsregenerate) | POST | open (TODO: session) | Generate a fresh AI dashboard briefing |
 | [`/api/briefings/preview`](#briefingspreview) | GET | open | DB-free smoke check |
-| [`/api/schedules`](#schedules) | GET / POST | Session cookie | Read or create a recurring schedule |
+| [`/api/schedules`](#schedules) | GET | Session cookie | List this tenant's schedules |
+| [`/api/schedules/[cadence]`](#schedulescadence) | PUT / DELETE | Session cookie | Upsert or remove the schedule for `daily` / `weekly` / `monthly` |
 | [`/api/brief/send`](#briefsend) | POST | open | One-shot Send Now |
-| [`/api/cron/dispatch-briefs`](#croncron-dispatch-briefs) | POST | Bearer `CRON_SECRET` | Cron worker — fires due schedules |
-| [`/api/cron/generate-briefings`](#croncron-generate-briefings) | POST | Bearer `CRON_SECRET` | Cron worker — daily AI briefing per tenant |
+| [`/api/cron/dispatch-briefs`](#croncron-dispatch-briefs) | POST | QStash signature (+ bearer fallback) | Cron worker — fires due schedules |
+| [`/api/cron/generate-briefings`](#croncron-generate-briefings) | POST | QStash signature (+ bearer fallback) | Cron worker — daily AI briefing per tenant |
 
 **Auth legend:**
 - **open** — no auth check at the route level. Some routes still resolve
   tenant from session if a cookie is present, but anonymous calls work.
 - **Session cookie** — `auth()` middleware. Returns 401 without a valid
   Auth.js JWT cookie.
-- **Bearer `CRON_SECRET`** — `Authorization: Bearer <secret>` header.
+- **QStash signature (+ bearer fallback)** — `lib/cron-auth.ts` verifies
+  the `upstash-signature` JWT against `QSTASH_CURRENT_SIGNING_KEY` /
+  `QSTASH_NEXT_SIGNING_KEY`. Also accepts a legacy
+  `Authorization: Bearer $CRON_SECRET` header for manual triggering.
   Anything else returns 401.
 
 ---
@@ -254,17 +258,34 @@ Lists schedules for the signed-in user's tenant.
 }
 ```
 
-### `POST /api/schedules`
+Source: `apps/web/app/api/schedules/route.ts`.
 
-Creates a new `Schedule` row. Server-side snaps `timeLocal` to the
-nearest 15-minute slot before persisting.
+---
+
+## `/api/schedules/[cadence]`
+
+Manage the schedule for a single cadence. The natural key is
+`(tenantId, cadence)` — enforced by a Postgres unique index — so each
+tenant has at most one row per cadence. `[cadence]` must be `daily`,
+`weekly`, or `monthly`; anything else → 400.
+
+### `PUT /api/schedules/[cadence]`
+
+**Upsert.** Creates or replaces the schedule for this cadence.
+Idempotent — POST'ing the same body twice yields the same final state.
+Server-side snaps `timeLocal` to the nearest 15-minute slot before
+persisting.
+
+`nextRunAt` is preserved when only `recipient` or `enabled` changed
+(so flipping pause doesn't slide the next-fire time) and recomputed
+when any timing field (`cadence`, `timeLocal`, `timezone`, `dayOfWeek`,
+`dayOfMonth`) changed.
 
 **Auth:** session cookie required → 401 otherwise.
 
 **Body:**
 ```ts
 {
-  cadence: 'daily' | 'weekly' | 'monthly';
   dayOfWeek?: number | null;       // 0–6, weekly only
   dayOfMonth?: string | null;      // '1'..'28' or 'last' or 'last-business', monthly only
   timeLocal: string;               // 'HH:mm' 24h
@@ -274,14 +295,25 @@ nearest 15-minute slot before persisting.
 }
 ```
 
-**Response:** `201 Created`
+**Response:** `201 Created` (new row) or `200 OK` (existing row updated)
 ```ts
 { schedule: Schedule }
 ```
 
 **Validation:** Zod-validated. 400 with field-level issues on bad input.
 
-Source: `apps/web/app/api/schedules/route.ts`.
+### `DELETE /api/schedules/[cadence]`
+
+Hard delete. Returns `200` on success, `404` if no row exists for this
+(tenant, cadence).
+
+**Response:**
+```ts
+{ deleted: true }   // 200
+{ error: 'not_found' }   // 404
+```
+
+Source: `apps/web/app/api/schedules/[cadence]/route.ts`.
 
 ---
 
@@ -328,13 +360,16 @@ Source: `apps/web/app/api/brief/send/route.ts`. Also exports
 
 `POST /api/cron/dispatch-briefs`
 
-The cron worker. Triggered every 15 minutes by the
-`cron-dispatch-briefs.yml` GitHub Actions workflow. Finds due
-`Schedule` rows, atomically claims each via an optimistic lock on
-`nextRunAt`, fires the email via in-process `sendBrief()`, writes
-`SendLog`, advances `nextRunAt`.
+The cron worker. Triggered every 5 minutes by the `dispatch-briefs`
+Upstash QStash schedule. Finds due `Schedule` rows, atomically claims
+each via an optimistic lock on `nextRunAt`, fires the email via
+in-process `sendBrief()`, writes `SendLog`, advances `nextRunAt`.
 
-**Auth:** `Authorization: Bearer <CRON_SECRET>`. Anything else → 401.
+**Auth:** QStash signature in `upstash-signature` header, verified by
+`lib/cron-auth.ts` against `QSTASH_CURRENT_SIGNING_KEY` /
+`QSTASH_NEXT_SIGNING_KEY`. As a fallback, also accepts
+`Authorization: Bearer <CRON_SECRET>` for manual `curl` triggering.
+Anything else → 401.
 
 **Body:** none.
 
@@ -366,13 +401,15 @@ Source: `apps/web/app/api/cron/dispatch-briefs/route.ts`.
 
 `POST /api/cron/generate-briefings`
 
-Cron worker, runs on weekday at 7am Central via the
-`cron-generate-briefings.yml` workflow. For each tenant: generates a
-fresh AI briefing, writes a `Briefing` row. So the dashboard always has
-something fresh to render in the morning without anyone clicking
+Cron worker, runs on weekdays at 7am Central via the
+`generate-briefings` Upstash QStash schedule. For each tenant: generates
+a fresh AI briefing, writes a `Briefing` row. So the dashboard always
+has something fresh to render in the morning without anyone clicking
 "Fetch latest news".
 
-**Auth:** `Authorization: Bearer <CRON_SECRET>`. 401 otherwise.
+**Auth:** QStash signature verification + bearer fallback. Same
+mechanism as `/api/cron/dispatch-briefs` above — see the auth note
+there for the full description.
 
 **Body:** none.
 
@@ -398,9 +435,11 @@ Source: `apps/web/app/api/cron/generate-briefings/route.ts`.
 
 ---
 
-## Calling the bearer-gated routes manually
+## Manually firing the cron endpoints
 
-For debugging or to fire a cron tick without waiting for GitHub:
+Two ways, both hit the same code path as a scheduled QStash tick.
+
+**Direct curl with the bearer fallback** — easiest for ad-hoc debugging:
 
 ```bash
 CRON_SECRET="$(grep '^CRON_SECRET=' apps/web/.env.local | cut -d= -f2- | tr -d '"')"
@@ -414,10 +453,13 @@ curl -X POST https://vera-mvp.vercel.app/api/cron/generate-briefings \
   -H "Authorization: Bearer $CRON_SECRET"
 ```
 
-Or via `gh` if the workflow is on `main`:
+**One-off QStash publish** — exercises the signed path end-to-end:
 
 ```bash
-gh workflow run cron-dispatch-briefs.yml --repo adityauphade-mac/vera-mvp
+QSTASH_TOKEN="..."  # from Upstash QStash console → Details
+curl -X POST "https://qstash-us-east-1.upstash.io/v2/publish/https://vera-mvp.vercel.app/api/cron/dispatch-briefs" \
+  -H "Authorization: Bearer $QSTASH_TOKEN" \
+  -H "Content-Length: 0"
 ```
 
-Same code path; same outcome.
+Both hit the same in-process dispatcher.

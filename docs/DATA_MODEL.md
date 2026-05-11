@@ -254,7 +254,7 @@ customer-data.
 | Source | Refresh cadence | How |
 |---|---|---|
 | `data/generated.json` (the snapshot) | Manual | Run `pnpm preprocess` from the repo root, commit the regenerated file |
-| `Briefing` (AI dashboard briefing) | Daily, weekdays at 7am Central via `cron-generate-briefings.yml` (when GitHub scheduler fires) | OR on-demand via the "Fetch latest news" button |
+| `Briefing` (AI dashboard briefing) | Daily, weekdays at 7am Central via the `generate-briefings` Upstash QStash schedule | OR on-demand via the "Fetch latest news" button |
 | `Schedule.nextRunAt` | After each fire, advanced via `computeNextRun` | The dispatcher claims a row by atomically advancing this field |
 | RoofLink → snapshot pipeline | Currently manual | Not yet implemented. `backfill.py` (repo root) is the reference Israel shared |
 

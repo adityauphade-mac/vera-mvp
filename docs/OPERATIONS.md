@@ -29,14 +29,14 @@ End-to-end: from a row in the `Schedule` table to a PDF in someone's inbox.
 ```mermaid
 sequenceDiagram
     autonumber
-    participant GH as GitHub Actions
+    participant QS as Upstash QStash
     participant API as Vercel · /api/cron/dispatch-briefs
     participant DB as Neon Postgres
     participant Resend
     participant Inbox
 
-    Note over GH: every 15 min
-    GH->>API: POST + Bearer CRON_SECRET
+    Note over QS: every 5 min
+    QS->>API: POST + upstash-signature JWT
     API->>DB: SELECT Schedule WHERE nextRunAt <= now
     loop for each due row
       API->>DB: UPDATE schedule SET nextRunAt=newValue<br/>WHERE id=$id AND nextRunAt=$old<br/>(optimistic claim)
@@ -50,7 +50,7 @@ sequenceDiagram
         Note over API: another dispatch beat us — skip
       end
     end
-    API-->>GH: { dispatched, failed, skipped }
+    API-->>QS: { dispatched, failed, skipped }
 ```
 
 Three guarantees:
@@ -59,9 +59,10 @@ Three guarantees:
    concurrent dispatches can never both fire the same schedule.
 2. **Crash-safe.** If we crash after `sendBrief` but before `SendLog`, the
    schedule is already advanced — we won't retry on the next tick.
-3. **Drift tolerant.** GitHub cron is rarely on the dot. A schedule for 1:00
-   PM might fire at 1:02 PM (typical) or 1:15 PM (worst case during heavy GH
-   load). It will not fire at 12:58 PM and it will not fire twice.
+3. **Drift tolerant.** QStash cron is usually within a few seconds of the
+   tick. A schedule for 1:00 PM typically fires at 1:00–1:01 PM. The worst
+   case is bounded by your QStash cron's interval (5 min for us). It will
+   not fire at 12:58 PM and it will not fire twice.
 
 What the dispatcher does NOT do:
 
@@ -106,7 +107,7 @@ sequenceDiagram
 
     rect rgba(255, 235, 220, 0.5)
     Note over User,DB: Scheduled path — weekday 7am Central
-    Note over Gen: invoked by cron-generate-briefings
+    Note over Gen: invoked by the QStash generate-briefings schedule
     Gen->>NWS: alerts
     Gen->>News: headlines
     Gen->>OpenAI: gpt-4o
@@ -162,27 +163,79 @@ Returns `{ id, scheduledFor, subject, pdfBytes, to }` on success.
 
 ## Manually trigger the dispatcher
 
-For testing the cron loop without waiting 15 minutes.
+For testing the cron loop without waiting for the next QStash tick.
 
-```bash
-gh workflow run cron-dispatch-briefs.yml \
-  --repo adityauphade-mac/vera-mvp
-
-# watch the run
-gh run watch
-```
-
-The workflow will hit the deployed `/api/cron/dispatch-briefs` with the
-`CRON_SECRET` from the repo's GitHub Secrets store. Same path as the
-scheduled cron, just on demand.
-
-If you want to fire it without GH involvement (direct curl):
+Direct curl (uses the legacy bearer auth, which the endpoint still
+accepts as a fallback to QStash signatures):
 
 ```bash
 CRON_SECRET="$(grep '^CRON_SECRET=' apps/web/.env.local | cut -d= -f2- | tr -d '"')"
 curl -X POST https://vera-mvp.vercel.app/api/cron/dispatch-briefs \
   -H "Authorization: Bearer $CRON_SECRET"
 ```
+
+Or via a one-off QStash publish (exercises the signed-path end-to-end,
+not just the bearer fallback):
+
+```bash
+QSTASH_TOKEN="$(grep '^QSTASH_TOKEN=' apps/web/.env.local | cut -d= -f2- | tr -d '"')"
+curl -X POST "https://qstash-us-east-1.upstash.io/v2/publish/https://vera-mvp.vercel.app/api/cron/dispatch-briefs" \
+  -H "Authorization: Bearer $QSTASH_TOKEN" \
+  -H "Content-Length: 0"
+```
+
+Both routes the same `/api/cron/dispatch-briefs`. Same code path as a
+QStash-triggered scheduled run.
+
+---
+
+## Scheduler trigger: Upstash QStash
+
+QStash is the primary trigger for both cron endpoints. We migrated off
+GitHub Actions cron on May 11 after observing a ~95% miss rate — GitHub
+delivers roughly 6 of the 96 ticks/day we asked for, with multi-hour
+gaps. QStash is purpose-built for this and runs within seconds of the
+tick.
+
+### Schedules currently configured
+
+| Schedule | Cron expression | Target URL | Notes |
+|---|---|---|---|
+| Dispatch due AR briefs | `*/5 * * * *` (every 5 min) | `https://vera-mvp.vercel.app/api/cron/dispatch-briefs` | Sweeps the `Schedule` table |
+| Generate daily AI briefings | `0 12 * * 1-5` (12:00 UTC Mon–Fri) | `https://vera-mvp.vercel.app/api/cron/generate-briefings` | One row per tenant |
+
+### To create or edit schedules
+
+QStash dashboard → **Schedules** → **Create Schedule**. The configured
+fields:
+
+- **Endpoint:** the Vercel URL above.
+- **Cron:** the expression above.
+- **HTTP method:** POST.
+- **Body:** leave empty.
+- **Retries:** default (3) is fine. If a tick lands while Vercel is
+  redeploying, QStash retries; the dispatcher is idempotent via its
+  optimistic lock so duplicates can't double-fire a schedule.
+
+### Authentication
+
+QStash signs every outgoing request with a JWT in the
+`upstash-signature` header. The endpoints verify it against
+`QSTASH_CURRENT_SIGNING_KEY` and `QSTASH_NEXT_SIGNING_KEY` (both
+present so QStash can rotate without an outage window — copy both
+values from the QStash dashboard to Vercel env vars).
+
+The legacy `Authorization: Bearer $CRON_SECRET` path is still accepted
+for manual triggering (see [Manually trigger the dispatcher](#manually-trigger-the-dispatcher)),
+so leaving `CRON_SECRET` set is fine.
+
+### What to do if QStash is down
+
+Hit the cron endpoints directly with the legacy bearer auth — same
+endpoints, same code path, just bypassing QStash entirely. Use the
+`curl` command in [Manually trigger the dispatcher](#manually-trigger-the-dispatcher)
+above. Loop it from a `watch` if you need to flush a backlog while
+QStash is recovering.
 
 ---
 
@@ -302,9 +355,10 @@ flowchart TD
     B -->|Row exists, status=failed| D[Read errorMessage<br/>fix root cause<br/>retry via Send now]
     B -->|No row| E{Check Schedule.nextRunAt}
     E -->|in the future| F[It's not due yet — wait]
-    E -->|in the past| G{Check GH Actions<br/>cron-dispatch-briefs runs}
-    G -->|recent run dispatched=0| H[The dispatcher didn't see your<br/>row. Check enabled=true and<br/>tenantId match]
-    G -->|no recent runs| I[GH cron is delayed.<br/>Trigger manually]
+    E -->|in the past| G{Check QStash dashboard<br/>→ Logs for the dispatch schedule}
+    G -->|recent tick, 200, dispatched=0| H[The dispatcher didn't see your<br/>row. Check enabled=true and<br/>tenantId match]
+    G -->|recent tick, non-200| J[Read QStash response body —<br/>likely a 500 from /api/cron/dispatch-briefs]
+    G -->|no recent tick| I[QStash didn't fire. Check the<br/>schedule is enabled in the dashboard.<br/>Manually trigger as fallback]
 ```
 
 ### "The dashboard briefing is empty / says 'Fetch latest news'"
@@ -312,7 +366,7 @@ flowchart TD
 That's the State A CTA — there's no `Briefing` row yet for this tenant.
 Either:
 - Click the orange "Fetch latest news" button → generates one immediately, OR
-- Wait for the next 7am Central run of `cron-generate-briefings`.
+- Wait for the next 7am Central run of the QStash `generate-briefings` schedule.
 
 ### "Auth says 'Server error / Configuration'"
 
