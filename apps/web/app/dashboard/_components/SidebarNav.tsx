@@ -8,6 +8,7 @@ import {
   CalendarClock,
   ClipboardCheck,
   GaugeCircle,
+  History,
   Home,
   ListChecks,
   LogOut,
@@ -23,6 +24,7 @@ const NAV = [
   { href: '/dashboard/rep-leaderboard', label: 'Rep leaderboard', icon: Trophy },
   { href: '/dashboard/reconciliation', label: 'Reconciliation', icon: ClipboardCheck },
   { href: '/dashboard/scheduler', label: 'Scheduler', icon: CalendarClock },
+  { href: '/dashboard/audit-logs', label: 'Audit log', icon: History },
 ];
 
 export function SidebarNav() {

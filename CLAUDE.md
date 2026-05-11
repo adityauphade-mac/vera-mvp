@@ -177,12 +177,47 @@ shared/domain/
 
 ---
 
+## Audit logging
+
+Every meaningful action lands in the `AuditLog` table. The integration is mostly automatic — adding a new feature usually inherits logging without any code in the route itself. Two paths:
+
+### Auto path — DB mutations on auditable models
+
+A Prisma client extension at `apps/web/lib/db.ts` intercepts every `create/update/upsert/delete/updateMany/deleteMany` on models listed in `AUDITABLE_MODELS` (defined in `apps/web/lib/audit.ts`). It writes a row to `AuditLog` with a generic summary like *"Schedule #23 updated"*, attributed to whoever owns the AsyncLocalStorage audit context.
+
+**`AUDITABLE_MODELS` is currently empty by design.** Every V1 surface already emits explicit audit rows via the path below so they can carry pretty human-readable summaries. Opting a model INTO auto-audit would just produce a duplicate generic row alongside the pretty one. The extension stays wired in so a future model that doesn't need a custom summary can opt in with a one-line change to that set.
+
+**Adding a new auditable model is one line.** Add the model name to `AUDITABLE_MODELS` and (optionally) a `MODEL_CATEGORY` entry so the category column reads correctly. New feature inherits logging.
+
+The default behavior is **no audit** — only models you add to the set are tracked. This keeps noise low and avoids the duplicate-row problem.
+
+### Explicit path — non-DB events and pretty summaries
+
+For events that don't touch Prisma (auth callbacks, chat queries, external-API responses) call `recordAudit(db, { category, action, summary, details? })` directly. The category MUST exist in `shared/types/audit.ts`; the action SHOULD exist in `AUDIT_ACTIONS_BY_CATEGORY[category]` for that category (the API's Zod validator accepts arbitrary action strings to allow forward-compat, but UI filters only surface known actions).
+
+For DB mutations where the generic summary would be ugly (*"Schedule #23 updated"* vs *"Daily AR brief paused"*), wrap the mutation in `withSuppressedAutoAudit(() => ...)` and follow it with an explicit `recordAudit(...)`. One row per action, prettily phrased.
+
+### Hard requirements
+
+- **User-gated routes use `withAuth(handler)`.** That helper populates the audit context. Without it, DB mutations from the route skip audit (silent failure). Non-negotiable.
+- **System tasks (cron handlers, scripts) use `withSystemAuditContext({ tenantId }, fn)`.** Same pattern, `userId = null`. Cron loops wrap their per-tenant work with this.
+- **Adding a category/action means updating `shared/types/audit.ts`.** UI filters and the API's Zod schema read from that catalog at build time.
+- **Models opting INTO audit go in `AUDITABLE_MODELS`.** Default is no-audit. We choose to surface what's meaningful rather than auto-log everything.
+- **`AuditLog` itself is NOT auditable.** That would recurse infinitely. It's already excluded.
+
+### Privacy note
+
+Chat audit entries capture the user's question text in `details.messages` (within-tenant only, gated by session). Mutation entries capture before/after row snapshots. Don't audit anything you wouldn't want a tenant admin to see.
+
+---
+
 ## API routes (`apps/web/app/api/*`)
 
 - Each route validates its input with Zod (request body, query params).
 - Return JSON with consistent shapes; no naked strings.
 - Errors return `{ error: { code, message } }` with appropriate HTTP status.
 - Never log secrets. Never echo `ANTHROPIC_API_KEY`.
+- **Auth-gated routes use `withAuth(handler)`** from `lib/auth-helpers.ts`. That helper authenticates, returns 401 if needed, and sets the AsyncLocalStorage audit context so DB mutations inside the route auto-log. System tasks (cron handlers, scripts) use `withSystemAuditContext({ tenantId }, fn)` from `lib/audit-context.ts`. See [Audit logging](#audit-logging) for the full pattern.
 
 ### Routes in MVP
 

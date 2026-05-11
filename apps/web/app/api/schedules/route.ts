@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
+import { withAuth } from '@/lib/auth-helpers';
 
 export const runtime = 'nodejs';
 
@@ -13,28 +13,12 @@ export const runtime = 'nodejs';
  * lying. PUT-as-upsert keeps the API and the UI honest.
  */
 
-async function requireTenantId(): Promise<
-  { ok: true; tenantId: number } | { ok: false; status: number; error: string }
-> {
-  const session = await auth();
-  if (!session?.user?.email) {
-    return { ok: false, status: 401, error: 'unauthorized' };
-  }
-  const tenantId = session.user.tenantId;
-  if (typeof tenantId !== 'number') {
-    return { ok: false, status: 403, error: 'no_tenant_binding' };
-  }
-  return { ok: true, tenantId };
-}
-
 export async function GET() {
-  const tenant = await requireTenantId();
-  if (!tenant.ok) {
-    return NextResponse.json({ error: tenant.error }, { status: tenant.status });
-  }
-  const schedules = await db.schedule.findMany({
-    where: { tenantId: tenant.tenantId },
-    orderBy: { cadence: 'asc' },
+  return withAuth(async ({ tenantId }) => {
+    const schedules = await db.schedule.findMany({
+      where: { tenantId },
+      orderBy: { cadence: 'asc' },
+    });
+    return NextResponse.json({ schedules });
   });
-  return NextResponse.json({ schedules });
 }

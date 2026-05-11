@@ -3,6 +3,8 @@ import { db } from '@/lib/db';
 import { computeNextRun, type Cadence } from '@/lib/cadence';
 import { sendBrief } from '@/app/api/brief/send/route';
 import { verifyCronAuth } from '@/lib/cron-auth';
+import { withSystemAuditContext, withSuppressedAutoAudit } from '@/lib/audit-context';
+import { recordAudit } from '@/lib/audit';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -70,99 +72,125 @@ export async function POST(req: Request) {
   const results: DispatchResult[] = [];
 
   for (const sch of due) {
-    // ── Step 1: Atomically claim the row ────────────────────────────
-    // Compute the post-run nextRunAt and try to advance the row, but ONLY
-    // if no concurrent dispatch has already advanced it. Postgres makes
-    // this UPDATE atomic at the row level; updateMany returns count=1 if
-    // we won, count=0 if we lost.
-    const newNextRunAt = computeNextRun({
-      cadence: sch.cadence as Cadence,
-      timeLocal: sch.timeLocal,
-      timezone: sch.timezone,
-      dayOfWeek: sch.dayOfWeek,
-      dayOfMonth: sch.dayOfMonth,
-      fromDate: now,
-    });
-
-    const claim = await db.schedule.updateMany({
-      where: {
-        id: sch.id,
-        // Optimistic lock: only succeeds if nextRunAt is still what we
-        // SELECTed. If another dispatch already advanced it, count=0.
-        nextRunAt: sch.nextRunAt,
-        enabled: true,
-      },
-      data: {
-        lastRunAt: now,
-        nextRunAt: newNextRunAt,
-      },
-    });
-
-    if (claim.count === 0) {
-      // Another dispatch claimed this row first (or it was disabled
-      // mid-flight). Skip — we never fire the email.
-      results.push({
-        scheduleId: sch.id,
-        status: 'skipped',
-        reason: 'already_claimed',
-      });
-      continue;
-    }
-
-    // ── Step 2: We own this dispatch. Fire the email. ────────────────
-    // Call sendBrief in-process instead of doing an HTTP roundtrip —
-    // avoids Vercel's deployment protection on hashed preview URLs and
-    // skips the auth round-trip we'd otherwise need.
-    let outcome:
-      | { status: 'sent'; resendId?: string; pdfBytes?: number }
-      | { status: 'failed'; error: string };
-    try {
-      const r = await sendBrief({
-        to: sch.recipient,
+    // Each due row is owned by exactly one tenant — set the system audit
+    // context for THAT tenant so auto-audit on the SendLog write below
+    // attributes the action correctly. userId stays null (system action).
+    await withSystemAuditContext({ tenantId: sch.tenantId }, async () => {
+      // ── Step 1: Atomically claim the row ──────────────────────────
+      const newNextRunAt = computeNextRun({
         cadence: sch.cadence as Cadence,
+        timeLocal: sch.timeLocal,
+        timezone: sch.timezone,
+        dayOfWeek: sch.dayOfWeek,
+        dayOfMonth: sch.dayOfMonth,
+        fromDate: now,
       });
-      if (r.ok) {
-        outcome = { status: 'sent', resendId: r.id, pdfBytes: r.pdfBytes };
-      } else {
+
+      // Suppress auto-audit on the claim — it's an internal bookkeeping
+      // update, not a user-visible action. We log the actual outcome
+      // (sent or failed) with a pretty summary instead.
+      const claim = await withSuppressedAutoAudit(() =>
+        db.schedule.updateMany({
+          where: {
+            id: sch.id,
+            // Optimistic lock: only succeeds if nextRunAt is still what
+            // we SELECTed. If another dispatch already advanced it,
+            // count=0.
+            nextRunAt: sch.nextRunAt,
+            enabled: true,
+          },
+          data: {
+            lastRunAt: now,
+            nextRunAt: newNextRunAt,
+          },
+        }),
+      );
+
+      if (claim.count === 0) {
+        results.push({
+          scheduleId: sch.id,
+          status: 'skipped',
+          reason: 'already_claimed',
+        });
+        return;
+      }
+
+      // ── Step 2: We own this dispatch. Fire the email. ─────────────
+      let outcome:
+        | { status: 'sent'; resendId?: string; pdfBytes?: number }
+        | { status: 'failed'; error: string };
+      try {
+        const r = await sendBrief({
+          to: sch.recipient,
+          cadence: sch.cadence as Cadence,
+        });
+        if (r.ok) {
+          outcome = { status: 'sent', resendId: r.id, pdfBytes: r.pdfBytes };
+        } else {
+          outcome = {
+            status: 'failed',
+            error: `${r.code}: ${r.message}`,
+          };
+        }
+      } catch (e) {
         outcome = {
           status: 'failed',
-          error: `${r.code}: ${r.message}`,
+          error: e instanceof Error ? e.message : String(e),
         };
       }
-    } catch (e) {
-      outcome = {
-        status: 'failed',
-        error: e instanceof Error ? e.message : String(e),
-      };
-    }
 
-    // ── Step 3: Record the outcome. ──────────────────────────────────
-    await db.sendLog.create({
-      data: {
+      // ── Step 3: Record the outcome. SendLog write auto-audits as
+      // `brief.created`; we ALSO emit a pretty `brief.sent_scheduled`
+      // or `brief.send_failed` row so the audit-log UI tells the
+      // human-readable story.
+      const sendLog = await db.sendLog.create({
+        data: {
+          tenantId: sch.tenantId,
+          scheduleId: sch.id,
+          cadence: sch.cadence,
+          toEmail: sch.recipient,
+          resendId: outcome.status === 'sent' ? outcome.resendId : undefined,
+          pdfBytes: outcome.status === 'sent' ? outcome.pdfBytes : undefined,
+          status: outcome.status,
+          errorMessage:
+            outcome.status === 'failed' ? outcome.error : undefined,
+        },
+      });
+
+      await recordAudit(db, {
         tenantId: sch.tenantId,
-        scheduleId: sch.id,
-        cadence: sch.cadence,
-        toEmail: sch.recipient,
-        resendId: outcome.status === 'sent' ? outcome.resendId : undefined,
-        pdfBytes: outcome.status === 'sent' ? outcome.pdfBytes : undefined,
-        status: outcome.status,
-        errorMessage: outcome.status === 'failed' ? outcome.error : undefined,
-      },
-    });
+        userId: null,
+        userEmail: null,
+        category: 'brief',
+        action: outcome.status === 'sent' ? 'sent_scheduled' : 'send_failed',
+        entityType: 'SendLog',
+        entityId: String(sendLog.id),
+        summary:
+          outcome.status === 'sent'
+            ? `Scheduled ${sch.cadence} brief sent to ${sch.recipient}`
+            : `Scheduled ${sch.cadence} brief to ${sch.recipient} failed`,
+        details: {
+          scheduleId: sch.id,
+          cadence: sch.cadence,
+          recipient: sch.recipient,
+          outcome,
+        },
+      });
 
-    if (outcome.status === 'sent') {
-      results.push({
-        scheduleId: sch.id,
-        status: 'sent',
-        resendId: outcome.resendId,
-      });
-    } else {
-      results.push({
-        scheduleId: sch.id,
-        status: 'failed',
-        error: outcome.error,
-      });
-    }
+      if (outcome.status === 'sent') {
+        results.push({
+          scheduleId: sch.id,
+          status: 'sent',
+          resendId: outcome.resendId,
+        });
+      } else {
+        results.push({
+          scheduleId: sch.id,
+          status: 'failed',
+          error: outcome.error,
+        });
+      }
+    });
   }
 
   return NextResponse.json({

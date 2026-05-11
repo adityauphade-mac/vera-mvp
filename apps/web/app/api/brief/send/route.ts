@@ -4,6 +4,9 @@ import { buildDailyBrief } from '@vera/domain';
 import { getData } from '@/lib/data';
 import { sendEmail, isEmailConfigured } from '@/lib/email';
 import { renderDailyBriefPDF } from '@/lib/daily-brief-pdf';
+import { withAuth } from '@/lib/auth-helpers';
+import { recordAudit } from '@/lib/audit';
+import { db } from '@/lib/db';
 
 export const runtime = 'nodejs';
 export const maxDuration = 30;
@@ -182,43 +185,76 @@ export async function sendBrief(input: SendBriefInput): Promise<SendBriefResult>
 }
 
 export async function POST(req: Request) {
-  let body: unknown;
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json(
-      { error: { code: 'invalid_json', message: 'Body must be valid JSON.' } },
-      { status: 400 },
-    );
-  }
+  return withAuth(async (audit) => {
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json(
+        { error: { code: 'invalid_json', message: 'Body must be valid JSON.' } },
+        { status: 400 },
+      );
+    }
 
-  const parsed = RequestSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json(
-      {
-        error: {
-          code: 'validation_error',
-          message: parsed.error.issues.map((i) => i.message).join('; '),
+    const parsed = RequestSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        {
+          error: {
+            code: 'validation_error',
+            message: parsed.error.issues.map((i) => i.message).join('; '),
+          },
         },
+        { status: 400 },
+      );
+    }
+
+    const result = await sendBrief(parsed.data);
+
+    if (!result.ok) {
+      // Record the failure too — useful trail when the operator wonders
+      // why their Send Now didn't land.
+      await recordAudit(db, {
+        tenantId: audit.tenantId,
+        userId: audit.userId,
+        userEmail: audit.userEmail,
+        category: 'brief',
+        action: 'send_failed',
+        summary: `Send Now to ${parsed.data.to} failed: ${result.code}`,
+        details: { request: parsed.data, error: result },
+      });
+      return NextResponse.json(
+        { error: { code: result.code, message: result.message } },
+        { status: result.status },
+      );
+    }
+
+    const cadence = parsed.data.cadence ?? 'daily';
+    await recordAudit(db, {
+      tenantId: audit.tenantId,
+      userId: audit.userId,
+      userEmail: audit.userEmail,
+      category: 'brief',
+      action: 'sent_now',
+      entityType: 'SendLog',
+      entityId: result.id,
+      summary: `Sent ${cadence} brief to ${parsed.data.to} (PDF ${(result.pdfBytes / 1024).toFixed(1)} KB)`,
+      details: {
+        to: parsed.data.to,
+        cadence,
+        subject: result.subject,
+        pdfBytes: result.pdfBytes,
+        resendId: result.id,
+        scheduledFor: result.scheduledFor,
       },
-      { status: 400 },
-    );
-  }
+    });
 
-  const result = await sendBrief(parsed.data);
-
-  if (!result.ok) {
-    return NextResponse.json(
-      { error: { code: result.code, message: result.message } },
-      { status: result.status },
-    );
-  }
-
-  return NextResponse.json({
-    id: result.id,
-    scheduledFor: result.scheduledFor,
-    subject: result.subject,
-    pdfBytes: result.pdfBytes,
-    to: parsed.data.to,
+    return NextResponse.json({
+      id: result.id,
+      scheduledFor: result.scheduledFor,
+      subject: result.subject,
+      pdfBytes: result.pdfBytes,
+      to: parsed.data.to,
+    });
   });
 }

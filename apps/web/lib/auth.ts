@@ -1,6 +1,7 @@
 import NextAuth from 'next-auth';
 import { authConfig } from '@/lib/auth.config';
 import { db } from '@/lib/db';
+import { recordAudit } from '@/lib/audit';
 
 /**
  * Auth.js v5 configuration. Google provider, JWT session strategy (avoids
@@ -35,7 +36,7 @@ const _nextAuth: any = NextAuth({
           where: { email: user.email },
         });
         if (!existing) {
-          await db.user.create({
+          const created = await db.user.create({
             data: {
               email: user.email,
               name: user.name ?? null,
@@ -44,6 +45,17 @@ const _nextAuth: any = NextAuth({
               tenantId: TENANT_ID_FALLBACK,
               role: 'member',
             },
+          });
+          // JWT strategy doesn't fire events.createUser, so we audit
+          // the new user here. The signed_in audit fires next.
+          await recordAudit(db, {
+            tenantId: created.tenantId,
+            userId: created.id,
+            userEmail: created.email,
+            category: 'auth',
+            action: 'user_created',
+            summary: `New user: ${created.email}`,
+            details: { provider: account?.provider },
           });
         } else if (!existing.googleSub && account?.providerAccountId) {
           await db.user.update({
@@ -88,6 +100,85 @@ const _nextAuth: any = NextAuth({
         session.user.role = token.role as string | undefined;
       }
       return session;
+    },
+  },
+  /**
+   * Audit events. The callbacks above can't reliably write audit rows
+   * because the AsyncLocalStorage audit context isn't set during the
+   * auth flow itself — there's no `withAuth` wrapper yet. So we use
+   * explicit `recordAudit` calls with the tenantId looked up directly
+   * from the just-created/updated User row.
+   *
+   * `signOut` fires server-side when the session is destroyed (cookie
+   * cleared). Auth.js v5 provides `token` on the event payload.
+   */
+  events: {
+    async signIn({ user, account, isNewUser }: any) {
+      if (!user?.email) return;
+      try {
+        const row = await db.user.findUnique({ where: { email: user.email } });
+        if (!row) return;
+        await recordAudit(db, {
+          tenantId: row.tenantId,
+          userId: row.id,
+          userEmail: row.email,
+          category: 'auth',
+          action: 'signed_in',
+          summary: `Signed in via ${account?.provider ?? 'unknown'}`,
+          details: { provider: account?.provider, isNewUser },
+        });
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.warn('[auth] signed_in audit failed:', e);
+      }
+    },
+    async signOut(args: any) {
+      // Auth.js v5 events.signOut payload shape varies by strategy.
+      // JWT strategy gives us { token }; database strategy gives
+      // { session }. Pull email out of whichever is present.
+      const email =
+        args?.token?.email ??
+        args?.session?.user?.email ??
+        null;
+      if (!email) return;
+      try {
+        const row = await db.user.findUnique({ where: { email } });
+        if (!row) return;
+        await recordAudit(db, {
+          tenantId: row.tenantId,
+          userId: row.id,
+          userEmail: row.email,
+          category: 'auth',
+          action: 'signed_out',
+          summary: 'Signed out',
+        });
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.warn('[auth] signed_out audit failed:', e);
+      }
+    },
+    async createUser({ user }: any) {
+      // Fires only with the database adapter — we use JWT strategy so
+      // this event won't fire. The User row is instead created inside
+      // the `signIn` callback above; we audit `user_created` from
+      // there when `isNewUser` would have been true (proxy: row was
+      // just inserted). Keeping this hook present documents the shape.
+      if (!user?.email) return;
+      try {
+        const row = await db.user.findUnique({ where: { email: user.email } });
+        if (!row) return;
+        await recordAudit(db, {
+          tenantId: row.tenantId,
+          userId: row.id,
+          userEmail: row.email,
+          category: 'auth',
+          action: 'user_created',
+          summary: `New user: ${row.email}`,
+        });
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.warn('[auth] user_created audit failed:', e);
+      }
     },
   },
 });

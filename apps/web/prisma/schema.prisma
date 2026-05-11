@@ -26,6 +26,7 @@ model Tenant {
   schedules  Schedule[]
   sendLog    SendLog[]
   briefings  Briefing[]
+  auditLogs  AuditLog[]
 }
 
 model User {
@@ -110,4 +111,53 @@ model Briefing {
   tenant Tenant @relation(fields: [tenantId], references: [id])
 
   @@index([tenantId, generatedAt])
+}
+
+/// Activity-stream record of every meaningful user or system action.
+/// Append-only — rows never get updated.
+///
+/// Two write paths, both feeding the same table:
+///   1. Auto: the Prisma client extension at lib/db.ts intercepts
+///      mutations on auditable models and writes a row with a generic
+///      summary. tenantId/userId come from the AsyncLocalStorage audit
+///      context (see lib/audit-context.ts).
+///   2. Explicit: lib/audit.ts exports `recordAudit()` for non-DB
+///      events (chat queries, auth callbacks, cron-fired sends) and
+///      for prettier custom summaries on top of an auto row.
+///
+/// See `shared/types/audit.ts` for the typed category/action catalog
+/// and CLAUDE.md "Audit logging" for the integration rules.
+model AuditLog {
+  id          Int      @id @default(autoincrement())
+  tenantId    Int
+  /// null when a system task did it (cron, scripts, migrations).
+  userId      Int?
+  /// Denormalized at write-time. Survives a future User deletion so
+  /// historical rows stay readable even if the actor is gone.
+  userEmail   String?
+  /// 'auth' | 'schedule' | 'brief' | 'briefing' | 'chat' | ...
+  /// Stored as plain string — adding a new category never requires
+  /// a DB migration. The canonical list lives in shared/types/audit.ts.
+  category    String
+  /// Verb describing what happened: 'created' | 'updated' | 'paused' |
+  /// 'resumed' | 'deleted' | 'sent_now' | 'sent_scheduled' | etc.
+  action      String
+  /// Prisma model name when category=schedule/brief/briefing/etc.
+  /// Null for auth + chat events that don't reference a row.
+  entityType  String?
+  /// Stringified primary key of the referenced entity.
+  entityId    String?
+  /// One-line human-readable description shown in the table.
+  summary     String
+  /// Flexible JSON payload — typically `{ before, after, changedFields }`
+  /// for mutations; conversation transcript for chat; OAuth metadata
+  /// for auth. The detail sheet renders this.
+  details     Json?
+  createdAt   DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, category, action])
+  @@index([tenantId, entityType, entityId])
 }

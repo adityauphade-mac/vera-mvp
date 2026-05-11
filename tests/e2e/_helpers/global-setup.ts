@@ -10,6 +10,8 @@ import { join } from 'node:path';
  * - Wipes the `Schedule` table so scheduler specs start from a known empty
  *   state (the natural-key unique index means a stale row from a prior run
  *   would block PUTs that expect to be the first write).
+ * - Wipes the `AuditLog` table so audit-log specs can assert on row
+ *   counts deterministically.
  *
  * No-op if DATABASE_URL is unset (DB-less local runs of public-route specs).
  */
@@ -28,13 +30,14 @@ export default async function globalSetup(): Promise<void> {
         // SendLog.scheduleId is ON DELETE SET NULL, so historical send rows
         // survive the Schedule wipe with their tenantId/cadence/recipient
         // intact — only the FK back-reference is nulled.
-        input: 'DELETE FROM "Briefing";\nDELETE FROM "Schedule";\n',
+        input:
+          'DELETE FROM "AuditLog";\nDELETE FROM "Briefing";\nDELETE FROM "Schedule";\n',
         env: { ...process.env, DATABASE_URL: dbUrl },
         stdio: ['pipe', 'ignore', 'inherit'],
       },
     );
     // eslint-disable-next-line no-console
-    console.log('[playwright] cleared Briefing and Schedule tables');
+    console.log('[playwright] cleared AuditLog, Briefing, Schedule tables');
   } catch (e) {
     // eslint-disable-next-line no-console
     console.warn('[playwright] DB reset failed — specs may be non-deterministic:', e);

@@ -18,11 +18,12 @@ shape, and response shape that's actually deployed today.
 | [`/api/jobs/follow-ups`](#jobsfollow-ups) | GET | open | Hot queue + executive review queue |
 | [`/api/jobs/reconciliation`](#jobsreconciliation) | GET | open | "Fell through cracks" list |
 | [`/api/reps/outstanding`](#repsoutstanding) | GET | open | Per-rep leaderboard |
-| [`/api/briefings/regenerate`](#briefingsregenerate) | POST | open (TODO: session) | Generate a fresh AI dashboard briefing |
+| [`/api/briefings/regenerate`](#briefingsregenerate) | POST | Session cookie | Generate a fresh AI dashboard briefing |
 | [`/api/briefings/preview`](#briefingspreview) | GET | open | DB-free smoke check |
 | [`/api/schedules`](#schedules) | GET | Session cookie | List this tenant's schedules |
 | [`/api/schedules/[cadence]`](#schedulescadence) | PUT / DELETE | Session cookie | Upsert or remove the schedule for `daily` / `weekly` / `monthly` |
-| [`/api/brief/send`](#briefsend) | POST | open | One-shot Send Now |
+| [`/api/brief/send`](#briefsend) | POST | Session cookie | One-shot Send Now |
+| [`/api/audit-logs`](#audit-logs) | GET | Session cookie | Activity stream — every meaningful action in this tenant |
 | [`/api/cron/dispatch-briefs`](#croncron-dispatch-briefs) | POST | QStash signature (+ bearer fallback) | Cron worker — fires due schedules |
 | [`/api/cron/generate-briefings`](#croncron-generate-briefings) | POST | QStash signature (+ bearer fallback) | Cron worker — daily AI briefing per tenant |
 
@@ -394,6 +395,67 @@ Two parallel invocations will only cause one send. Verified via
 `tests/e2e/cron-dispatch-race.spec.ts` (opt-in with `RUN_RACE_TEST=1`).
 
 Source: `apps/web/app/api/cron/dispatch-briefs/route.ts`.
+
+---
+
+## `/api/audit-logs`
+
+`GET /api/audit-logs`
+
+Activity stream for the signed-in user's tenant — every meaningful
+action lands here. Powers the `/dashboard/audit-logs` page.
+
+**Auth:** session cookie required → 401 otherwise. Tenant-scoped.
+
+**Query params** (all optional, see `shared/types/audit.ts` for the
+canonical catalog):
+
+```ts
+{
+  category?: 'auth' | 'schedule' | 'brief' | 'briefing' | 'chat';
+  action?: string;          // e.g. 'created' | 'paused' | 'sent_now'
+  userId?: number | '';     // '' means "system actions only" (userId IS NULL)
+  entityType?: string;      // e.g. 'Schedule'
+  entityId?: string;        // combine with entityType for "history of this row"
+  since?: string;           // ISO timestamp, inclusive lower bound
+  until?: string;           // ISO timestamp, exclusive upper bound
+  q?: string;               // case-insensitive substring search on `summary`
+  limit?: number;           // default 50, max 200
+  offset?: number;          // default 0
+}
+```
+
+**Response:**
+```ts
+{
+  entries: AuditLog[];   // sorted newest-first
+  total: number;         // matches the same WHERE clause (for pagination)
+  limit: number;
+  offset: number;
+}
+```
+
+Each entry shape:
+```ts
+{
+  id: number;
+  tenantId: number;
+  userId: number | null;        // null = system action (cron, scripts)
+  userEmail: string | null;     // denormalized snapshot from write time
+  category: AuditCategory;
+  action: string;
+  entityType: string | null;    // 'Schedule' | 'Briefing' | 'SendLog' | null
+  entityId: string | null;      // stringified primary key
+  summary: string;              // one-line human-readable
+  details: unknown | null;      // { before, after, changedFields } or per-category shape
+  createdAt: string;            // ISO timestamp
+}
+```
+
+**Validation:** Zod-validated query. 400 with field-level issues for
+invalid `since`/`until`, out-of-range `limit`, etc.
+
+Source: `apps/web/app/api/audit-logs/route.ts`.
 
 ---
 
