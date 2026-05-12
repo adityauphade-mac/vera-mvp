@@ -66,14 +66,60 @@ copy_if_missing() {
   echo "  copied: $rel_dst"
 }
 
+# .env.local needs special handling. Skipping on "exists" silently is a
+# footgun: if a previous run created a partial .env.local (e.g. an earlier
+# Claude session that wrote one with only DATABASE_URL pointed at local
+# Postgres, omitting GOOGLE_CLIENT_ID etc.), the worktree silently lacks
+# Google OAuth, OpenAI, Resend, NewsAPI, AUTH_TRUST_HOST, NEXTAUTH_SECRET,
+# DATABASE_URL_UNPOOLED — every feature that depends on those breaks.
+#
+# This helper does the right thing on every code path:
+#   • fresh worktree (no .env.local)  → copy canonical verbatim
+#   • existing .env.local matches canonical keys → leave alone, report ✓
+#   • existing .env.local is MISSING canonical keys → emit a loud warning
+#     with the exact key list and a one-line merge command
+sync_env_local() {
+  local src="$1" dst="$2"
+  if [ ! -f "$src" ]; then
+    echo "  warn: no .env.local in canonical — cannot bootstrap"
+    return
+  fi
+  if [ ! -f "$dst" ]; then
+    mkdir -p "$(dirname "$dst")"
+    cp "$src" "$dst"
+    echo "  copied .env.local from canonical (verbatim)"
+    return
+  fi
+  # Both files exist — compare key sets.
+  local src_keys dst_keys missing
+  src_keys=$(grep -E "^[A-Z_][A-Z0-9_]*=" "$src" | cut -d= -f1 | sort -u)
+  dst_keys=$(grep -E "^[A-Z_][A-Z0-9_]*=" "$dst" | cut -d= -f1 | sort -u)
+  missing=$(comm -23 <(echo "$src_keys") <(echo "$dst_keys"))
+  if [ -z "$missing" ]; then
+    echo "  .env.local exists and has every canonical key ✓"
+    return
+  fi
+  echo ""
+  echo "  ⚠ .env.local exists but is MISSING $(echo "$missing" | wc -l | tr -d ' ') canonical key(s):"
+  echo "$missing" | sed 's/^/      - /'
+  echo ""
+  echo "  To merge canonical's secrets into the existing .env.local without"
+  echo "  losing your local DATABASE_URL override, run:"
+  echo "      LOCAL_DB=\$(grep '^DATABASE_URL=' $dst)"
+  echo "      cp $src $dst.new"
+  echo "      sed -i.bak \"s|^DATABASE_URL=.*|\$LOCAL_DB|\" $dst.new"
+  echo "      mv $dst.new $dst"
+  echo ""
+}
+
 echo "Bootstrapping worktree:"
 echo "  main:   $MAIN_REPO"
 echo "  target: $TARGET"
 echo ""
 echo "→ Copying gitignored files"
-copy_if_missing "$MAIN_REPO/apps/web/.env.local"   "$TARGET/apps/web/.env.local"
-copy_if_missing "$MAIN_REPO/data/jobs_dedup.jsonl" "$TARGET/data/jobs_dedup.jsonl"
-copy_if_missing "$MAIN_REPO/data/generated.json"   "$TARGET/data/generated.json"
+sync_env_local    "$MAIN_REPO/apps/web/.env.local"   "$TARGET/apps/web/.env.local"
+copy_if_missing   "$MAIN_REPO/data/jobs_dedup.jsonl" "$TARGET/data/jobs_dedup.jsonl"
+copy_if_missing   "$MAIN_REPO/data/generated.json"   "$TARGET/data/generated.json"
 
 echo ""
 echo "→ Installing dependencies (pnpm install)"

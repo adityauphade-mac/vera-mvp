@@ -130,7 +130,8 @@ israil_mvp/
 | React | 19.2.4 | Server + client components |
 | TypeScript | 5.7.x (strict) | Language |
 | Tailwind CSS | 4.x | Styling |
-| `@vera/ui` | workspace | shadcn-style components: Button, Card, Sheet, TimePicker, Tooltip, etc. |
+| `@vera/ui` | workspace | shadcn-style components: Button, Card, Sheet, Tabs, ConfirmDialog, Toaster, TimePicker, Tooltip, etc. See full inventory in the "Design system" section below. |
+| Sonner | 2.x | Toast notifications (re-exported from `@vera/ui`, themed via Vera CSS variables) |
 | Lucide Icons | 0.469 | Iconography |
 | Recharts (Tremor) | — | Charts |
 | React Hook Form | 7.x | Form state |
@@ -321,6 +322,40 @@ dense data grids, massive stat numbers, sharp 90° corners, cool grays.
 - Table row height: 56px (reads as a list, not a grid).
 - Border radii: 16–20px on cards, 12px on inputs, full on pills/badges.
 - Shadows: subtle, warm-tinted (brown undertones).
+
+### Component inventory (`@vera/ui`)
+
+Every shared component lives in `shared/ui/src/components/` and is re-exported
+from `@vera/ui`. Page files import from there; **no inline one-off UI primitives**
+(per CLAUDE.md rule #13). The live design-system page at `/design` is the
+canonical inventory — open it before adding anything new.
+
+| Primitive | Surface | Notes |
+|---|---|---|
+| `Button` | shared | 5 variants (primary, secondary, ghost, link, destructive), 4 sizes |
+| `Card` | shared | Default surface for grouping |
+| `Tabs / TabsList / Tab / TabsContent` | shared | Underline-style. Controlled or uncontrolled. ARIA-correct. |
+| `ConfirmDialog` + `useConfirm()` | shared | Promise-based replacement for `window.confirm()`. Mount `<ConfirmProvider>` once at root. |
+| `Toaster` + `toast` (re-exported from sonner) | shared | Themed via `globals.css` `[data-sonner-toaster]` block to use Vera tokens. Loading toasts with a stable id update in place — ideal for long-running operations. |
+| `Sheet` | shared | Right-side drawer with portal + animations |
+| `Select`, `Popover`, `Switch`, `TimePicker`, `Calendar`, `DateTimePicker` | shared | Form primitives (mostly Radix-backed) |
+| `Table`, `TableShell`, `TablePagination`, `TableToolbar` | shared | Composable table parts |
+| `FilterMenu` | shared | Multi-select chip+dropdown filter |
+| `MetricTile`, `HeatScoreBadge`, `HeatMeter`, `AgingChip`, `AnomalyTag`, `MissingStepTag` | shared | AR-domain visualizations |
+| `Tooltip`, `Skeleton`, `Ticker`, `VeraAvatar`, `VeraQuote` | shared | Misc affordances |
+
+### Feedback patterns
+
+- **Confirmations** (Remove, Cancel run, etc.) → `useConfirm()` returns
+  `Promise<boolean>`. Never `window.confirm()`.
+- **Transient status** (saved, sent, paused, network error) → `toast.success()` /
+  `toast.error()`. Never inline `<div>` banners that conditionally render.
+- **Long-running progress** (backfill runs, multi-second jobs) →
+  `toast.loading()` with a stable string id, replaced in-place on update,
+  promoted to `toast.success()` / `toast.error()` on completion. Persists across
+  page navigations because `<Toaster>` lives in the root layout.
+- **Persistent informational state** (a card showing "last run failed at X
+  rows") → stays on-card. That's history, not transient.
 
 ### Voice and tone
 

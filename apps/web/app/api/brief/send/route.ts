@@ -4,6 +4,7 @@ import { buildDailyBrief } from '@vera/domain';
 import { getData } from '@/lib/data';
 import { sendEmail, isEmailConfigured } from '@/lib/email';
 import { renderDailyBriefPDF } from '@/lib/daily-brief-pdf';
+import { renderEmailLayout, EMAIL_COLORS } from '@/lib/email-layout';
 
 export const runtime = 'nodejs';
 export const maxDuration = 30;
@@ -25,8 +26,10 @@ function markdownToHtml(
   md: string,
   options: { title: string; subtitle: string },
 ): string {
-  // Lightweight markdown → HTML for email body. We don't need a full parser:
-  // just bold, lists, paragraphs, line breaks.
+  // Lightweight markdown → HTML for the brief body. The outer email
+  // chrome (header with Vera avatar + Calloway name, footer) is supplied
+  // by `renderEmailLayout`. We only build the inner body here: an intro
+  // subtitle line plus the converted markdown.
   const escape = (s: string) =>
     s
       .replace(/&/g, '&amp;')
@@ -61,25 +64,18 @@ function markdownToHtml(
   }
   if (inList) out.push('</ul>');
 
-  const safeTitle = escape(options.title);
-  const safeSubtitle = escape(options.subtitle);
+  const bodyHtml = `
+    <div style="font-size:14px;line-height:1.55;color:${EMAIL_COLORS.textPrimary};">
+      ${out.join('\n')}
+    </div>`.trim();
 
-  return `
-<!doctype html>
-<html>
-  <body style="margin:0;padding:24px;background:#FAF6EE;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#1F1B16;">
-    <div style="max-width:600px;margin:0 auto;background:#FFFFFF;border:1px solid #E5DDD0;border-radius:12px;padding:32px;">
-      <p style="font-size:11px;color:#8A7E6E;text-transform:uppercase;letter-spacing:1.6px;margin:0 0 4px 0;">Vera · Lead AR Intelligence</p>
-      <h1 style="font-size:22px;margin:0 0 4px 0;letter-spacing:-0.4px;">${safeTitle}</h1>
-      <p style="font-size:12px;color:#5A4F40;margin:0 0 18px 0;">${safeSubtitle}</p>
-      <div style="font-size:14px;line-height:1.55;">
-        ${out.join('\n')}
-      </div>
-      <hr style="border:none;border-top:1px solid #E5DDD0;margin:20px 0;" />
-      <p style="font-size:11px;color:#8A7E6E;margin:0;">Vera Calloway · Priority Roofs</p>
-    </div>
-  </body>
-</html>`.trim();
+  return renderEmailLayout({
+    preheader: options.subtitle,
+    eyebrow: 'Vera · daily AR brief',
+    headline: options.title,
+    introHtml: escape(options.subtitle),
+    bodyHtml,
+  });
 
   function renderInline(s: string): string {
     // Escape was already done for paragraph content; for list items we escape here.

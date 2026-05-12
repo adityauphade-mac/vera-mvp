@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { computeNextRun, type Cadence } from '@/lib/cadence';
 import { sendBrief } from '@/app/api/brief/send/route';
 import { verifyCronAuth } from '@/lib/cron-auth';
+import { publishNextTick } from '@/lib/backfill/qstash';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -165,12 +166,118 @@ export async function POST(req: Request) {
     }
   }
 
+  // ── Backfill dispatch ────────────────────────────────────────────────
+  // Pick up any BackfillSchedule rows whose nextRunAt is due. We don't
+  // claim the schedule row itself — instead we insert a new BackfillRun
+  // and let the tick worker own the lifecycle from there. Atomically
+  // advance nextRunAt on the schedule so the next cron poll doesn't
+  // re-fire the same window.
+  const dueBackfills = await db.backfillSchedule.findMany({
+    where: { enabled: true, nextRunAt: { lte: now } },
+    take: 50,
+  });
+
+  const backfillKickoffs: Array<{
+    scheduleId: number;
+    source: string;
+    status: 'kicked' | 'skipped' | 'error';
+    runId?: number;
+    error?: string;
+  }> = [];
+
+  for (const sch of dueBackfills) {
+    // Optimistic-lock advance of nextRunAt — same pattern as briefs above.
+    const newNextRunAt = computeNextRun({
+      cadence: sch.cadence as Cadence,
+      timeLocal: sch.timeLocal,
+      timezone: sch.timezone,
+      dayOfWeek: sch.dayOfWeek,
+      dayOfMonth: sch.dayOfMonth,
+      fromDate: now,
+    });
+
+    const claim = await db.backfillSchedule.updateMany({
+      where: {
+        id: sch.id,
+        nextRunAt: sch.nextRunAt,
+        enabled: true,
+      },
+      data: { lastRunAt: now, nextRunAt: newNextRunAt },
+    });
+    if (claim.count === 0) {
+      backfillKickoffs.push({
+        scheduleId: sch.id,
+        source: sch.source,
+        status: 'skipped',
+      });
+      continue;
+    }
+
+    // Refuse to kick a second run if one is already in flight for the same
+    // source. This mirrors the Run-now endpoint's behavior.
+    const inflight = await db.backfillRun.findFirst({
+      where: {
+        tenantId: sch.tenantId,
+        source: sch.source,
+        status: { in: ['queued', 'running'] },
+      },
+    });
+    if (inflight) {
+      backfillKickoffs.push({
+        scheduleId: sch.id,
+        source: sch.source,
+        status: 'skipped',
+        runId: inflight.id,
+      });
+      continue;
+    }
+
+    try {
+      // Incremental if a watermark exists; full on the first ever run for
+      // this source. Scheduled cron never forces a full re-sync — that's
+      // an explicit user action via the UI's "Run as full sync" button.
+      const mode: 'full' | 'incremental' = sch.lastSyncedAt ? 'incremental' : 'full';
+      const run = await db.backfillRun.create({
+        data: {
+          tenantId: sch.tenantId,
+          source: sch.source,
+          scheduleId: sch.id,
+          status: 'running',
+          mode,
+          syncedSince: sch.lastSyncedAt,
+          startedAt: new Date(),
+        },
+      });
+      const destinationUrl = new URL(req.url).origin + '/api/cron/backfill-tick';
+      await publishNextTick({ runId: run.id, destinationUrl, delaySec: 0 });
+      backfillKickoffs.push({
+        scheduleId: sch.id,
+        source: sch.source,
+        status: 'kicked',
+        runId: run.id,
+      });
+    } catch (e) {
+      backfillKickoffs.push({
+        scheduleId: sch.id,
+        source: sch.source,
+        status: 'error',
+        error: e instanceof Error ? e.message : String(e),
+      });
+    }
+  }
+
   return NextResponse.json({
     dispatched: results.filter((r) => r.status === 'sent').length,
     failed: results.filter((r) => r.status === 'failed').length,
     skipped: results.filter((r) => r.status === 'skipped').length,
     total: results.length,
     results,
+    backfills: {
+      kicked: backfillKickoffs.filter((b) => b.status === 'kicked').length,
+      skipped: backfillKickoffs.filter((b) => b.status === 'skipped').length,
+      errors: backfillKickoffs.filter((b) => b.status === 'error').length,
+      details: backfillKickoffs,
+    },
     at: now.toISOString(),
   });
 }

@@ -32,7 +32,7 @@ interface TestUser {
 }
 
 export const DEFAULT_TEST_USER: Required<TestUser> = {
-  email: 'developer@levich.co',
+  email: 'adityauphade@makanalytics.org',
   name: 'Test User',
   userId: 1,
   tenantId: 1,

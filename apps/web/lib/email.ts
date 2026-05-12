@@ -43,10 +43,7 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
     to: input.to,
     subject: input.subject,
     html: input.html,
-    attachments: input.attachments?.map((a) => ({
-      filename: a.filename,
-      content: a.content,
-    })),
+    attachments: input.attachments,
     ...(input.scheduledAt ? { scheduledAt: input.scheduledAt } : {}),
   });
 

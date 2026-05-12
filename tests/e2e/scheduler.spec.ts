@@ -22,30 +22,24 @@ test.describe('Scheduler', () => {
     ).toHaveCount(0);
   });
 
-  test('shows the highlights section with all six toggles', async ({ page }) => {
+  test('has Reports and Data sync tabs (Highlights is hidden — v2)', async ({
+    page,
+  }) => {
     await page.goto('/dashboard/scheduler');
+    await expect(page.getByRole('tab', { name: 'Reports' })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Data sync' })).toBeVisible();
+    // Highlights section is intentionally hidden until the diff engine ships.
     await expect(
       page.getByRole('heading', { name: /What gets highlighted/i }),
-    ).toBeVisible();
-    for (const label of [
-      'Job moved between aging buckets',
-      'Heat score band changed',
-      'Job category changed',
-      'New anomaly flagged',
-      'Job paid off',
-      'New rep assigned',
-    ]) {
-      await expect(page.getByText(label, { exact: true })).toBeVisible();
-    }
+    ).toHaveCount(0);
   });
 
   test('Send now is disabled until a valid recipient is entered', async ({
     page,
   }) => {
     await page.goto('/dashboard/scheduler');
-    // Each report has a Send now button — the daily one specifically.
+    // Reports is the default tab — its three rows have Send now buttons.
     const sendButtons = page.getByRole('button', { name: /Send now/i });
-    // Without recipient, button is disabled
     await expect(sendButtons.first()).toBeDisabled();
   });
 
@@ -54,13 +48,24 @@ test.describe('Scheduler', () => {
     await expect(page.getByRole('link', { name: /Scheduler/i })).toBeVisible();
   });
 
-  test('each report row has a Schedule button alongside Send now', async ({ page }) => {
+  test('default tab is Reports — three Schedule buttons visible', async ({
+    page,
+  }) => {
     await page.goto('/dashboard/scheduler');
-    const scheduleButtons = page.getByRole('button', { name: /^Schedule$/ });
+    const reportsPanel = page.getByRole('tabpanel', { name: /^Reports$/ });
+    const scheduleButtons = reportsPanel.getByRole('button', { name: /^Schedule$/ });
     await expect(scheduleButtons).toHaveCount(3);
-    // Schedule is gated on a valid recipient — disabled until one is entered.
     for (let i = 0; i < 3; i++) {
       await expect(scheduleButtons.nth(i)).toBeDisabled();
     }
+  });
+
+  test('Data sync tab reveals both backfill cards on click', async ({ page }) => {
+    await page.goto('/dashboard/scheduler');
+    // Cards are NOT in the DOM until the tab is selected.
+    await expect(page.getByTestId('backfill-card-rooflink_jobs')).toHaveCount(0);
+    await page.getByRole('tab', { name: 'Data sync' }).click();
+    await expect(page.getByTestId('backfill-card-rooflink_jobs')).toBeVisible();
+    await expect(page.getByTestId('backfill-card-rooflink_lineitems')).toBeVisible();
   });
 });

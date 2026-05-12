@@ -22,10 +22,13 @@ model Tenant {
   briefingTimezone  String    @default("America/Chicago")
   createdAt         DateTime  @default(now())
 
-  users      User[]
-  schedules  Schedule[]
-  sendLog    SendLog[]
-  briefings  Briefing[]
+  users               User[]
+  schedules           Schedule[]
+  sendLog             SendLog[]
+  briefings           Briefing[]
+  backfillSchedules   BackfillSchedule[]
+  backfillRuns        BackfillRun[]
+  failureNotification FailureNotificationSetting?
 }
 
 model User {
@@ -110,4 +113,126 @@ model Briefing {
   tenant Tenant @relation(fields: [tenantId], references: [id])
 
   @@index([tenantId, generatedAt])
+}
+
+// =============================================================================
+// Backfill scheduling — see docs/BACKFILL_SCHEDULING.md
+// =============================================================================
+
+/// Schedules a recurring backfill from a Rooflink endpoint. Mirrors Schedule.
+/// Natural key: one row per (tenant, source). The whole UX is "edit the row",
+/// never "create another one".
+model BackfillSchedule {
+  id          Int       @id @default(autoincrement())
+  tenantId    Int
+  /// 'rooflink_jobs' | 'rooflink_lineitems'
+  source      String
+  /// 'daily' | 'weekly' | 'monthly'
+  cadence     String
+  /// 0 (Sunday) .. 6 (Saturday) for weekly cadence
+  dayOfWeek   Int?
+  /// '1'..'28' or 'last' or 'last-business' for monthly cadence
+  dayOfMonth  String?
+  /// 'HH:mm' in the tenant's local timezone
+  timeLocal   String
+  /// IANA tz, e.g. 'America/Chicago'
+  timezone    String
+  enabled     Boolean   @default(true)
+  nextRunAt   DateTime?
+  lastRunAt   DateTime?
+  /// High-watermark: the `startedAt` of the most recent successful run.
+  /// null = never synced; next run is full. Otherwise next run fetches
+  /// only records with `date_last_edited > lastSyncedAt`.
+  lastSyncedAt  DateTime?
+  /// `startedAt` of the last full (non-incremental) successful run.
+  /// Used to suggest periodic full re-sync to catch deletions / schema drift.
+  lastFullSyncAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  tenant      Tenant         @relation(fields: [tenantId], references: [id])
+  runs        BackfillRun[]
+
+  @@unique([tenantId, source])
+  @@index([tenantId, enabled, nextRunAt])
+}
+
+/// One execution of a backfill. Triggered by Run-now (scheduleId = null) or
+/// by the cron dispatcher. The tick worker advances the cursor and writes
+/// raw rows tagged with this run's id as `dataVersion`.
+model BackfillRun {
+  id                Int       @id @default(autoincrement())
+  tenantId          Int
+  source            String
+  /// nullable — manual Run-now has no schedule
+  scheduleId        Int?
+  /// 'queued' | 'running' | 'completed' | 'canceled' | 'failed'
+  status            String
+  /// 'full' | 'incremental'. Full runs re-fetch everything and demote prior
+  /// promoted versions on completion. Incremental runs apply on top of the
+  /// previous promoted snapshot (merge view) and do not demote.
+  mode              String    @default("full")
+  /// Copied from BackfillSchedule.lastSyncedAt at run start. Passed to
+  /// Rooflink as `date_last_edited__gte`. Null on full runs.
+  syncedSince       DateTime?
+  startedAt         DateTime?
+  finishedAt        DateTime?
+  /// Opaque resume token. For jobs: next page URL. For lineitems: index into
+  /// the estimate id list.
+  cursor            String?
+  itemsProcessed    Int       @default(0)
+  /// null until the first tick discovers the total
+  itemsTotal        Int?
+  errorCount        Int       @default(0)
+  consecutiveErrors Int       @default(0)
+  lastError         String?
+  /// Optimistic claim — set at the start of every tick. Prevents duplicate
+  /// ticks (QStash at-least-once delivery). Cleared when a tick exits cleanly.
+  claimedAt         DateTime?
+  /// true once the data this run produced has been atomically swapped in.
+  /// The UI reads the latest completed run with promoted = true.
+  promoted          Boolean   @default(false)
+  createdAt         DateTime  @default(now())
+
+  tenant            Tenant            @relation(fields: [tenantId], references: [id])
+  schedule          BackfillSchedule? @relation(fields: [scheduleId], references: [id])
+
+  @@index([tenantId, source, status])
+  @@index([source, promoted, finishedAt])
+}
+
+/// Raw Rooflink job payload. One row per (rooflinkId, dataVersion). The full
+/// API response is kept verbatim — downstream queries pull whatever they need.
+model RawRooflinkJob {
+  rooflinkId  String
+  /// = BackfillRun.id of the run that wrote this row
+  dataVersion Int
+  payload     Json
+  fetchedAt   DateTime @default(now())
+
+  @@id([rooflinkId, dataVersion])
+  @@index([dataVersion])
+}
+
+/// Raw Rooflink estimate line-items payload. Same shape as RawRooflinkJob.
+model RawRooflinkLineItems {
+  estimateId  String
+  dataVersion Int
+  payload     Json
+  fetchedAt   DateTime @default(now())
+
+  @@id([estimateId, dataVersion])
+  @@index([dataVersion])
+}
+
+/// Configured ops email for failure notifications. One row per tenant.
+/// Distinct from per-cadence brief recipients on purpose.
+model FailureNotificationSetting {
+  id          Int      @id @default(autoincrement())
+  tenantId    Int      @unique
+  /// Email that receives notifications when a brief send or backfill run fails.
+  opsEmail    String?
+  updatedAt   DateTime @updatedAt
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
 }

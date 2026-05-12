@@ -17,8 +17,15 @@ import {
   SelectTrigger,
   SelectValue,
   Switch,
+  Tab,
+  Tabs,
+  TabsContent,
+  TabsList,
   TimePicker,
+  toast,
+  useConfirm,
 } from '@vera/ui';
+import { DataSyncSection } from './DataSyncSection';
 
 /**
  * Scheduler — recurring report delivery configuration.
@@ -290,6 +297,7 @@ export function SchedulerView() {
     weekly: { kind: 'idle' },
     monthly: { kind: 'idle' },
   });
+  const confirm = useConfirm();
 
   useEffect(() => {
     const local = loadState();
@@ -358,11 +366,11 @@ export function SchedulerView() {
 
   async function sendNow(id: ReportId) {
     const cfg = state.reports[id];
+    const briefTitle = REPORT_META[id].title;
     if (!isValidEmail(cfg.recipient)) {
-      setOutcomes((o) => ({
-        ...o,
-        [id]: { kind: 'error', message: 'Enter a valid recipient email first.' },
-      }));
+      toast.error(`Couldn't send the ${briefTitle}`, {
+        description: 'Enter a valid recipient email first.',
+      });
       return;
     }
     setOutcomes((o) => ({ ...o, [id]: { kind: 'pending' } }));
@@ -374,10 +382,10 @@ export function SchedulerView() {
       });
       const json = await res.json();
       if (!res.ok) {
-        setOutcomes((o) => ({
-          ...o,
-          [id]: { kind: 'error', message: json?.error?.message ?? 'Send failed.' },
-        }));
+        setOutcomes((o) => ({ ...o, [id]: { kind: 'idle' } }));
+        toast.error(`Couldn't send the ${briefTitle}`, {
+          description: json?.error?.message ?? 'Unknown error',
+        });
         return;
       }
       setOutcomes((o) => ({
@@ -389,17 +397,14 @@ export function SchedulerView() {
           id: json.id,
         },
       }));
+      toast.success(`${briefTitle} sent`, {
+        description: `Delivered to ${json.to} · PDF ${(json.pdfBytes / 1024).toFixed(1)} KB`,
+      });
     } catch (e) {
-      setOutcomes((o) => ({
-        ...o,
-        [id]: {
-          kind: 'error',
-          message:
-            e instanceof Error
-              ? e.message
-              : 'Network error — could not reach the server.',
-        },
-      }));
+      setOutcomes((o) => ({ ...o, [id]: { kind: 'idle' } }));
+      toast.error(`Couldn't send the ${briefTitle}`, {
+        description: e instanceof Error ? e.message : 'Network error',
+      });
     }
   }
 
@@ -410,11 +415,11 @@ export function SchedulerView() {
    */
   async function saveSchedule(id: ReportId) {
     const cfg = state.reports[id];
+    const briefTitle = REPORT_META[id].title;
     if (!isValidEmail(cfg.recipient)) {
-      setScheduleOutcomes((o) => ({
-        ...o,
-        [id]: { kind: 'error', message: 'Enter a valid recipient email first.' },
-      }));
+      toast.error(`Couldn't save the ${briefTitle}`, {
+        description: 'Enter a valid recipient email first.',
+      });
       return;
     }
 
@@ -441,16 +446,13 @@ export function SchedulerView() {
       });
       const json = await res.json();
       if (!res.ok) {
-        setScheduleOutcomes((o) => ({
-          ...o,
-          [id]: {
-            kind: 'error',
-            message:
-              typeof json?.error === 'string'
-                ? json.error
-                : `Save failed (HTTP ${res.status}).`,
-          },
-        }));
+        setScheduleOutcomes((o) => ({ ...o, [id]: { kind: 'idle' } }));
+        toast.error(`Couldn't save the ${briefTitle}`, {
+          description:
+            typeof json?.error === 'string'
+              ? json.error
+              : `Save failed (HTTP ${res.status})`,
+        });
         return;
       }
       const saved: ServerSchedule = json.schedule;
@@ -459,17 +461,16 @@ export function SchedulerView() {
         ...o,
         [id]: { kind: 'saved', nextRunAt: saved.nextRunAt ?? '' },
       }));
+      toast.success(`${briefTitle} scheduled`, {
+        description: saved.nextRunAt
+          ? `Next run ${formatNextRun(saved.nextRunAt, timezone)}`
+          : undefined,
+      });
     } catch (e) {
-      setScheduleOutcomes((o) => ({
-        ...o,
-        [id]: {
-          kind: 'error',
-          message:
-            e instanceof Error
-              ? e.message
-              : 'Network error — could not reach the server.',
-        },
-      }));
+      setScheduleOutcomes((o) => ({ ...o, [id]: { kind: 'idle' } }));
+      toast.error(`Couldn't save the ${briefTitle}`, {
+        description: e instanceof Error ? e.message : 'Network error',
+      });
     }
   }
 
@@ -499,19 +500,16 @@ export function SchedulerView() {
         }),
       });
       const json = await res.json();
+      const briefTitle = REPORT_META[id].title;
       if (!res.ok) {
-        // Roll back.
         setServerRows((rows) => ({ ...rows, [id]: previous }));
-        setScheduleOutcomes((o) => ({
-          ...o,
-          [id]: {
-            kind: 'error',
-            message:
-              typeof json?.error === 'string'
-                ? json.error
-                : `Could not ${nextEnabled ? 'resume' : 'pause'} schedule.`,
-          },
-        }));
+        setScheduleOutcomes((o) => ({ ...o, [id]: { kind: 'idle' } }));
+        toast.error(`Couldn't ${nextEnabled ? 'resume' : 'pause'} ${briefTitle}`, {
+          description:
+            typeof json?.error === 'string'
+              ? json.error
+              : `HTTP ${res.status}`,
+        });
         return;
       }
       const saved: ServerSchedule = json.schedule;
@@ -522,61 +520,54 @@ export function SchedulerView() {
           ? { kind: 'resumed', nextRunAt: saved.nextRunAt ?? '' }
           : { kind: 'paused' },
       }));
+      toast.success(nextEnabled ? `${briefTitle} resumed` : `${briefTitle} paused`, {
+        description:
+          nextEnabled && saved.nextRunAt
+            ? `Next run ${formatNextRun(saved.nextRunAt, timezone)}`
+            : undefined,
+      });
     } catch (e) {
       setServerRows((rows) => ({ ...rows, [id]: previous }));
-      setScheduleOutcomes((o) => ({
-        ...o,
-        [id]: {
-          kind: 'error',
-          message:
-            e instanceof Error
-              ? e.message
-              : 'Network error — could not reach the server.',
-        },
-      }));
+      setScheduleOutcomes((o) => ({ ...o, [id]: { kind: 'idle' } }));
+      toast.error(`Couldn't update ${REPORT_META[id].title}`, {
+        description: e instanceof Error ? e.message : 'Network error',
+      });
     }
   }
 
   async function removeSchedule(id: ReportId) {
     if (!serverRows[id]) return;
-    const confirmed =
-      typeof window !== 'undefined'
-        ? window.confirm(
-            `Remove the ${REPORT_META[id].title}? Future automatic sends will stop. Send now still works.`,
-          )
-        : true;
-    if (!confirmed) return;
+    const briefTitle = REPORT_META[id].title;
+    const ok = await confirm({
+      title: 'Remove this schedule',
+      description: `Automatic sends will stop for the ${briefTitle}. You can still trigger one manually with Send now.`,
+      confirmLabel: 'Remove schedule',
+      destructive: true,
+    });
+    if (!ok) return;
 
     setScheduleOutcomes((o) => ({ ...o, [id]: { kind: 'pending' } }));
     try {
       const res = await fetch(`/api/schedules/${id}`, { method: 'DELETE' });
       if (!res.ok) {
         const json = await res.json().catch(() => ({}));
-        setScheduleOutcomes((o) => ({
-          ...o,
-          [id]: {
-            kind: 'error',
-            message:
-              typeof json?.error === 'string'
-                ? json.error
-                : `Remove failed (HTTP ${res.status}).`,
-          },
-        }));
+        setScheduleOutcomes((o) => ({ ...o, [id]: { kind: 'idle' } }));
+        toast.error(`Couldn't remove ${briefTitle}`, {
+          description:
+            typeof json?.error === 'string'
+              ? json.error
+              : `HTTP ${res.status}`,
+        });
         return;
       }
       setServerRows((rows) => ({ ...rows, [id]: null }));
       setScheduleOutcomes((o) => ({ ...o, [id]: { kind: 'removed' } }));
+      toast.success(`${briefTitle} schedule removed`);
     } catch (e) {
-      setScheduleOutcomes((o) => ({
-        ...o,
-        [id]: {
-          kind: 'error',
-          message:
-            e instanceof Error
-              ? e.message
-              : 'Network error — could not reach the server.',
-        },
-      }));
+      setScheduleOutcomes((o) => ({ ...o, [id]: { kind: 'idle' } }));
+      toast.error(`Couldn't remove ${briefTitle}`, {
+        description: e instanceof Error ? e.message : 'Network error',
+      });
     }
   }
 
@@ -599,71 +590,43 @@ export function SchedulerView() {
         </p>
       </header>
 
-      {/* Reports */}
-      <section className="vera-rise-delay-1 space-y-4">
-        <div className="flex items-baseline justify-between">
-          <h2 className="text-text-secondary text-sm tracking-[0.2em] uppercase">
-            Reports
-          </h2>
+      <Tabs defaultValue="reports" name="scheduler" className="vera-rise-delay-1 gap-6">
+        <TabsList aria-label="Scheduler sections">
+          <Tab value="reports">Reports</Tab>
+          <Tab value="data-sync">Data sync</Tab>
+        </TabsList>
+
+        <TabsContent value="reports" className="space-y-4 pt-6">
           <p className="text-text-muted text-xs">3 cadences available</p>
-        </div>
+          {(['daily', 'weekly', 'monthly'] as ReportId[]).map((id) => (
+            <ReportRow
+              key={id}
+              report={state.reports[id]}
+              serverRow={serverRows[id]}
+              outcome={outcomes[id]}
+              scheduleOutcome={scheduleOutcomes[id]}
+              hydrated={hydrated}
+              timezone={timezone}
+              onChange={(patch) => updateReport(id, patch)}
+              onSendNow={() => sendNow(id)}
+              onSave={() => saveSchedule(id)}
+              onToggleEnabled={(v) => setEnabled(id, v)}
+              onRemove={() => removeSchedule(id)}
+            />
+          ))}
+        </TabsContent>
 
-        {(['daily', 'weekly', 'monthly'] as ReportId[]).map((id) => (
-          <ReportRow
-            key={id}
-            report={state.reports[id]}
-            serverRow={serverRows[id]}
-            outcome={outcomes[id]}
-            scheduleOutcome={scheduleOutcomes[id]}
-            hydrated={hydrated}
-            timezone={timezone}
-            onChange={(patch) => updateReport(id, patch)}
-            onSendNow={() => sendNow(id)}
-            onSave={() => saveSchedule(id)}
-            onToggleEnabled={(v) => setEnabled(id, v)}
-            onRemove={() => removeSchedule(id)}
-          />
-        ))}
-      </section>
+        <TabsContent value="data-sync" className="space-y-4 pt-6">
+          <DataSyncSection />
+        </TabsContent>
+      </Tabs>
 
-      {/* Highlights */}
-      <section className="vera-rise-delay-2 space-y-4">
-        <div className="space-y-1">
-          <h2 className="text-text-secondary text-sm tracking-[0.2em] uppercase">
-            What gets highlighted
-          </h2>
-          <p className="text-text-muted text-xs">
-            When a report runs, these are the changes since the last run that
-            Vera will call out at the top of the email and PDF.
-          </p>
-        </div>
-
-        <Card>
-          <div className="divide-border divide-y">
-            {HIGHLIGHT_META.map((h) => {
-              const checked = state.highlights[h.id] ?? false;
-              return (
-                <div
-                  key={h.id}
-                  className="flex items-start justify-between gap-4 py-3.5 first:pt-0 last:pb-0"
-                >
-                  <div className="space-y-0.5">
-                    <p className="text-text-primary text-sm font-medium">
-                      {h.label}
-                    </p>
-                    <p className="text-text-muted text-xs">{h.hint}</p>
-                  </div>
-                  <Switch
-                    checked={checked}
-                    onCheckedChange={(v) => toggleHighlight(h.id, v)}
-                    aria-label={`Toggle highlight: ${h.label}`}
-                  />
-                </div>
-              );
-            })}
-          </div>
-        </Card>
-      </section>
+      {/*
+        "What gets highlighted" section is hidden until the underlying
+        highlight rule engine is implemented — today it's UI-only sugar with
+        no effect on the actual email/PDF output. State + persistence remain
+        in place so we can resurface it once the diff engine ships.
+      */}
     </div>
   );
 }
@@ -861,61 +824,9 @@ function ReportRow({
           {/* Action row */}
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="min-w-0 flex-1">
-              {outcome.kind === 'success' ? (
-                <div className="border-accent/30 bg-accent/5 flex items-center gap-2 rounded-xl border px-3 py-2">
-                  <CheckCircle2 className="text-accent h-3.5 w-3.5 shrink-0" />
-                  <p className="text-text-primary text-xs">
-                    Sent to <strong>{outcome.to}</strong> · PDF{' '}
-                    {(outcome.pdfBytes / 1024).toFixed(1)} KB
-                  </p>
-                </div>
-              ) : null}
-              {outcome.kind === 'error' ? (
-                <div className="border-heat-critical/40 bg-heat-critical/5 flex items-center gap-2 rounded-xl border px-3 py-2">
-                  <AlertCircle className="text-heat-critical h-3.5 w-3.5 shrink-0" />
-                  <p className="text-text-primary text-xs">{outcome.message}</p>
-                </div>
-              ) : null}
-              {scheduleOutcome.kind === 'saved' && scheduleOutcome.nextRunAt ? (
-                <div className="border-accent/30 bg-accent/5 flex items-center gap-2 rounded-xl border px-3 py-2">
-                  <CheckCircle2 className="text-accent h-3.5 w-3.5 shrink-0" />
-                  <p className="text-text-primary text-xs">
-                    Saved — next run{' '}
-                    <strong>{formatNextRun(scheduleOutcome.nextRunAt, timezone)}</strong>.
-                  </p>
-                </div>
-              ) : null}
-              {scheduleOutcome.kind === 'paused' ? (
-                <div className="border-border bg-bg-base/40 flex items-center gap-2 rounded-xl border px-3 py-2">
-                  <CheckCircle2 className="text-text-muted h-3.5 w-3.5 shrink-0" />
-                  <p className="text-text-primary text-xs">
-                    Paused — no automatic sends until you resume.
-                  </p>
-                </div>
-              ) : null}
-              {scheduleOutcome.kind === 'resumed' && scheduleOutcome.nextRunAt ? (
-                <div className="border-accent/30 bg-accent/5 flex items-center gap-2 rounded-xl border px-3 py-2">
-                  <CheckCircle2 className="text-accent h-3.5 w-3.5 shrink-0" />
-                  <p className="text-text-primary text-xs">
-                    Resumed — next run{' '}
-                    <strong>{formatNextRun(scheduleOutcome.nextRunAt, timezone)}</strong>.
-                  </p>
-                </div>
-              ) : null}
-              {scheduleOutcome.kind === 'removed' ? (
-                <div className="border-border bg-bg-base/40 flex items-center gap-2 rounded-xl border px-3 py-2">
-                  <CheckCircle2 className="text-text-muted h-3.5 w-3.5 shrink-0" />
-                  <p className="text-text-primary text-xs">
-                    Removed — no automatic sends for this cadence.
-                  </p>
-                </div>
-              ) : null}
-              {scheduleOutcome.kind === 'error' ? (
-                <div className="border-heat-critical/40 bg-heat-critical/5 flex items-center gap-2 rounded-xl border px-3 py-2">
-                  <AlertCircle className="text-heat-critical h-3.5 w-3.5 shrink-0" />
-                  <p className="text-text-primary text-xs">{scheduleOutcome.message}</p>
-                </div>
-              ) : null}
+              {/* All transient feedback (sent / saved / paused / resumed /
+                  removed / error) moved to toasts via the global <Toaster>.
+                  See CLAUDE.md hard rule #11: no inline status banners. */}
             </div>
             <div className="flex shrink-0 flex-wrap items-center gap-2">
               {hasServerRow ? (

@@ -22,6 +22,20 @@ async function main() {
   });
   // eslint-disable-next-line no-console
   console.log('Seeded tenant:', tenant);
+
+  // Dev-mode test user — also used by Playwright auth helper. Idempotent.
+  const devUser = await db.user.upsert({
+    where: { email: 'adityauphade@makanalytics.org' },
+    update: {},
+    create: {
+      email: 'adityauphade@makanalytics.org',
+      name: 'Aditya Uphade',
+      tenantId: tenant.id,
+      role: 'owner',
+    },
+  });
+  // eslint-disable-next-line no-console
+  console.log('Seeded dev user:', { id: devUser.id, email: devUser.email });
 }
 
 main()
