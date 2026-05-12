@@ -1,0 +1,2487 @@
+{
+  "generatedAt": "2026-05-12T13:10:40.824Z",
+  "scope": "ar-working-set",
+  "totals": {
+    "candidatesFetched": 130,
+    "candidatesWithWriteOffs": 25,
+    "totalAmountWithheld": 138951.75999999998,
+    "fetchErrors": 0,
+    "skipped404": 0
+  },
+  "records": [
+    {
+      "jobId": 2930390,
+      "estimateId": 526706,
+      "customerName": "Sammy Williams",
+      "address": "409 Milton Drive, Arlington, TX  76002",
+      "installDate": "2025-04-29T10:33:52.685415-05:00",
+      "repName": "Nick Adams",
+      "region": "Dallas",
+      "amountWithheld": 38831.21,
+      "contractPrice": 0,
+      "balance": 250,
+      "insuranceRcv": 38631.21,
+      "lineItems": {
+        "work_doing": [
+          {
+            "product_id": 42144,
+            "product_name": "Initial RCV",
+            "color": "Barkwood",
+            "work_completed": false,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 1773926,
+            "note": "",
+            "rcv": 31395.13,
+            "recoverable_depreciation": 13421.24,
+            "non_recoverable_depreciation": 0,
+            "price": 31395.13,
+            "insurance_invoice": 31395.13,
+            "unit": "EA",
+            "unit_price": 31395.13,
+            "quantity": 1,
+            "photos_count": 0,
+            "photos": [],
+            "is_integrated": false
+          },
+          {
+            "product_id": 70530,
+            "product_name": "Supplement | Generic | Approved Supplement",
+            "color": null,
+            "work_completed": false,
+            "trade_id": 24,
+            "trade_name": "Supplement",
+            "id": 2029962,
+            "note": "",
+            "rcv": 7236.08,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "price": 7236.08,
+            "insurance_invoice": 7236.08,
+            "unit": "EA",
+            "unit_price": 7236.08,
+            "quantity": 1,
+            "photos_count": 0,
+            "photos": [],
+            "is_integrated": false
+          }
+        ],
+        "work_not_doing": [],
+        "supplineitems": [],
+        "changeorderitems": [],
+        "upgrades": [],
+        "discounts": [
+          {
+            "product_id": 71493,
+            "product_name": "Discounts | Generic | Amount Withheld",
+            "color": null,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 2730343,
+            "price": -38831.21,
+            "note": ""
+          }
+        ],
+        "summary": {
+          "work_doing": {
+            "rcv": 38631.21,
+            "recoverable_depreciation": 13421.24,
+            "non_recoverable_depreciation": 0,
+            "insurance_invoice": 38631.21,
+            "price": 38631.21
+          },
+          "work_not_doing": {
+            "rcv": 0,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "insurance_invoice": 0,
+            "price": 0
+          },
+          "supplineitems": {
+            "amt_requested": 0,
+            "amt_approved": 0,
+            "insurance_invoice": 0,
+            "price": 0
+          },
+          "upgrades": 0,
+          "discounts": -38831.21,
+          "changeorderlineitems": 0
+        }
+      }
+    },
+    {
+      "jobId": 3602423,
+      "estimateId": 640422,
+      "customerName": "Charli & Joe Willard",
+      "address": "2800 Quail Ridge Dr, Carrollton, TX  75006",
+      "installDate": "2025-10-22T15:50:31.652675-05:00",
+      "repName": "Josh Casas",
+      "region": "Dallas",
+      "amountWithheld": 23282.09,
+      "contractPrice": 23282.09,
+      "balance": 23282.09,
+      "insuranceRcv": 23282.09,
+      "lineItems": {
+        "work_doing": [
+          {
+            "product_id": 42144,
+            "product_name": "Initial RCV",
+            "color": "Teak",
+            "work_completed": false,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 2161385,
+            "note": "",
+            "rcv": 23282.09,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "price": 23282.09,
+            "insurance_invoice": 23282.09,
+            "unit": "EA",
+            "unit_price": 492.22178,
+            "quantity": 47.3,
+            "photos_count": 0,
+            "photos": [],
+            "is_integrated": false
+          }
+        ],
+        "work_not_doing": [],
+        "supplineitems": [],
+        "changeorderitems": [],
+        "upgrades": [],
+        "discounts": [
+          {
+            "product_id": 71493,
+            "product_name": "Discounts | Generic | Amount Withheld",
+            "color": null,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 2721760,
+            "price": -23282.09,
+            "note": ""
+          }
+        ],
+        "summary": {
+          "work_doing": {
+            "rcv": 23282.09,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "insurance_invoice": 23282.09,
+            "price": 23282.09
+          },
+          "work_not_doing": {
+            "rcv": 0,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "insurance_invoice": 0,
+            "price": 0
+          },
+          "supplineitems": {
+            "amt_requested": 0,
+            "amt_approved": 0,
+            "insurance_invoice": 0,
+            "price": 0
+          },
+          "upgrades": 0,
+          "discounts": -23282.09,
+          "changeorderlineitems": 0
+        }
+      }
+    },
+    {
+      "jobId": 3473727,
+      "estimateId": 638479,
+      "customerName": "James Sisk",
+      "address": "1917 Dunning Street, Irving, TX  75061",
+      "installDate": "2025-10-21T11:32:33.413483-05:00",
+      "repName": "Sean McCarty",
+      "region": "Dallas",
+      "amountWithheld": 13628.29,
+      "contractPrice": 13628.89,
+      "balance": 13628.89,
+      "insuranceRcv": 13628.29,
+      "lineItems": {
+        "work_doing": [
+          {
+            "product_id": 42083,
+            "product_name": "Shingles | Lifetime | GAF | Timberline HDZ | Weathered Wood",
+            "color": "Weathered Wood",
+            "work_completed": false,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 2153241,
+            "note": "*Roof Replacement as per insurance scope of repairs\n* Tear Off 1 Layer of existing roofing shingles and felt\n* Replace any rotten wood at $75 per sheet\n* Install 1 Layer of new synthetic felt underlayment nailed to deck using approved fasteners.\n* Replace all Pipe Boots, Roof Vents and Re-flash as needed.\n* Install Ice/Water shield moisture barrier in all valleys. \n* Install Ridge Cap on Hips & Ridges\n* Remove & Replace 1.5\" Drip Edge Painted IF NEEDED\n* Tear off & haul away debris with onsite dumpster\n* Full & Thorough Cleanup\n* Limited Lifetime Warranty on materials from manufacturer",
+            "rcv": 13628.29,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "price": 13628.29,
+            "insurance_invoice": 13628.29,
+            "unit": "SQ",
+            "unit_price": 577.46992,
+            "quantity": 23.6,
+            "photos_count": 0,
+            "photos": [],
+            "is_integrated": false
+          }
+        ],
+        "work_not_doing": [],
+        "supplineitems": [],
+        "changeorderitems": [],
+        "upgrades": [],
+        "discounts": [
+          {
+            "product_id": 71493,
+            "product_name": "Discounts | Generic | Amount Withheld",
+            "color": null,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 2730611,
+            "price": -13628.29,
+            "note": ""
+          }
+        ],
+        "summary": {
+          "work_doing": {
+            "rcv": 13628.29,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "insurance_invoice": 13628.29,
+            "price": 13628.29
+          },
+          "work_not_doing": {
+            "rcv": 0,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "insurance_invoice": 0,
+            "price": 0
+          },
+          "supplineitems": {
+            "amt_requested": 0,
+            "amt_approved": 0,
+            "insurance_invoice": 0,
+            "price": 0
+          },
+          "upgrades": 0,
+          "discounts": -13628.29,
+          "changeorderlineitems": 0
+        }
+      }
+    },
+    {
+      "jobId": 3405236,
+      "estimateId": 628900,
+      "customerName": "James Berger",
+      "address": "924 Lorene Dr, Wylie, TX  75098",
+      "installDate": "2025-10-02T12:06:58.906108-05:00",
+      "repName": "Clemente Mandujano",
+      "region": "Dallas",
+      "amountWithheld": 11986.39,
+      "contractPrice": 33329,
+      "balance": 3796.39,
+      "insuranceRcv": 33329,
+      "lineItems": {
+        "work_doing": [
+          {
+            "product_id": 42144,
+            "product_name": "Initial RCV",
+            "color": "Weathered Wood",
+            "work_completed": false,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 2117921,
+            "note": "",
+            "rcv": 33329,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "price": 33329,
+            "insurance_invoice": 33329,
+            "unit": "EA",
+            "unit_price": 624.13858,
+            "quantity": 53.4,
+            "photos_count": 0,
+            "photos": [],
+            "is_integrated": false
+          }
+        ],
+        "work_not_doing": [],
+        "supplineitems": [],
+        "changeorderitems": [],
+        "upgrades": [],
+        "discounts": [
+          {
+            "product_id": 71493,
+            "product_name": "Discounts | Generic | Amount Withheld",
+            "color": null,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 2721733,
+            "price": -11986.39,
+            "note": ""
+          }
+        ],
+        "summary": {
+          "work_doing": {
+            "rcv": 33329,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "insurance_invoice": 33329,
+            "price": 33329
+          },
+          "work_not_doing": {
+            "rcv": 0,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "insurance_invoice": 0,
+            "price": 0
+          },
+          "supplineitems": {
+            "amt_requested": 0,
+            "amt_approved": 0,
+            "insurance_invoice": 0,
+            "price": 0
+          },
+          "upgrades": 0,
+          "discounts": -11986.39,
+          "changeorderlineitems": 0
+        }
+      }
+    },
+    {
+      "jobId": 3197825,
+      "estimateId": 564107,
+      "customerName": "Silu Dsouza",
+      "address": "448 Lakehurst Drive, Murphy, TX  75094",
+      "installDate": "2025-11-25T11:21:00-06:00",
+      "repName": "Thomas Tinu",
+      "region": "Dallas",
+      "amountWithheld": 10543.21,
+      "contractPrice": 26543.21,
+      "balance": 10543.21,
+      "insuranceRcv": 26543.21,
+      "lineItems": {
+        "work_doing": [
+          {
+            "product_id": 42083,
+            "product_name": "Shingles | Lifetime | GAF | Timberline HDZ",
+            "color": "Charcoal",
+            "work_completed": false,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 1901124,
+            "note": "*Roof Replacement as per insurance scope of repairs\n* Tear Off 1 Layer of existing roofing shingles and felt\n* Replace any rotten wood at $75 per sheet\n* Install 1 Layer of new synthetic felt underlayment nailed to deck using approved fasteners.\n* Replace all Pipe Boots, Roof Vents and Re-flash as needed.\n* Install Ice/Water shield moisture barrier in all valleys. \n* Install Ridge Cap on Hips & Ridges\n* Remove & Replace 1.5\" Drip Edge Painted IF NEEDED\n* Tear off & haul away debris with onsite dumpster\n* Full & Thorough Cleanup\n* Limited Lifetime Warranty on materials from manufacturer",
+            "rcv": 26543.21,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "price": 26543.21,
+            "insurance_invoice": 26543.21,
+            "unit": "SQ",
+            "unit_price": 611.5947,
+            "quantity": 43.4,
+            "photos_count": 0,
+            "photos": [],
+            "is_integrated": false
+          }
+        ],
+        "work_not_doing": [],
+        "supplineitems": [],
+        "changeorderitems": [],
+        "upgrades": [],
+        "discounts": [
+          {
+            "product_id": 71493,
+            "product_name": "Discounts | Generic | Amount Withheld",
+            "color": null,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 2732020,
+            "price": -10543.21,
+            "note": ""
+          }
+        ],
+        "summary": {
+          "work_doing": {
+            "rcv": 26543.21,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "insurance_invoice": 26543.21,
+            "price": 26543.21
+          },
+          "work_not_doing": {
+            "rcv": 0,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "insurance_invoice": 0,
+            "price": 0
+          },
+          "supplineitems": {
+            "amt_requested": 0,
+            "amt_approved": 0,
+            "insurance_invoice": 0,
+            "price": 0
+          },
+          "upgrades": 0,
+          "discounts": -10543.21,
+          "changeorderlineitems": 0
+        }
+      }
+    },
+    {
+      "jobId": 1426146,
+      "estimateId": 700668,
+      "customerName": "Darrin Williams",
+      "address": "226 Roy Rogers Lane, Murphy, TX  75094",
+      "installDate": "2025-12-26T12:36:04.097289-06:00",
+      "repName": "Clemente Mandujano",
+      "region": "Dallas",
+      "amountWithheld": 5333.04,
+      "contractPrice": 15239.95,
+      "balance": 5333.14,
+      "insuranceRcv": 15239.85,
+      "lineItems": {
+        "work_doing": [
+          {
+            "product_id": 42068,
+            "product_name": "Shingles | Lifetime | Owens Corning | Duration Tru-Def",
+            "color": "Onyx Black",
+            "work_completed": false,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 2324314,
+            "note": "*Roof Replacement as per insurance scope of repairs\n* Tear Off 1 Layer of existing roofing shingles and felt\n* Replace any rotten wood at $75 per sheet\n* Install 1 Layer of new synthetic felt underlayment nailed to deck using approved fasteners.\n* Replace all Pipe Boots, Roof Vents and Re-flash as needed.\n* Install Ice/Water shield moisture barrier in all valleys. \n* Install Ridge Cap on Hips & Ridges\n* Remove & Replace 1.5\" Drip Edge Painted IF NEEDED\n* Tear off & haul away debris with onsite dumpster\n* Full & Thorough Cleanup\n* Limited Lifetime Warranty on materials from manufacturer",
+            "rcv": 15239.85,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "price": 15239.85,
+            "insurance_invoice": 15239.85,
+            "unit": "SQ",
+            "unit_price": 347.1492,
+            "quantity": 43.9,
+            "photos_count": 0,
+            "photos": [],
+            "is_integrated": false
+          }
+        ],
+        "work_not_doing": [],
+        "supplineitems": [],
+        "changeorderitems": [],
+        "upgrades": [],
+        "discounts": [
+          {
+            "product_id": 71493,
+            "product_name": "Discounts | Generic | Amount Withheld",
+            "color": null,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 2725341,
+            "price": -5333.04,
+            "note": ""
+          }
+        ],
+        "summary": {
+          "work_doing": {
+            "rcv": 15239.85,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "insurance_invoice": 15239.85,
+            "price": 15239.85
+          },
+          "work_not_doing": {
+            "rcv": 0,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "insurance_invoice": 0,
+            "price": 0
+          },
+          "supplineitems": {
+            "amt_requested": 0,
+            "amt_approved": 0,
+            "insurance_invoice": 0,
+            "price": 0
+          },
+          "upgrades": 0,
+          "discounts": -5333.04,
+          "changeorderlineitems": 0
+        }
+      }
+    },
+    {
+      "jobId": 3338413,
+      "estimateId": 676000,
+      "customerName": "Santos Gonzalez",
+      "address": "1314 Flamingo Lane, Garland, TX  75042",
+      "installDate": "2025-12-11T14:49:30.846270-06:00",
+      "repName": "Anthony Allen",
+      "region": "Dallas",
+      "amountWithheld": 5276.78,
+      "contractPrice": 10596.08,
+      "balance": 2628.28,
+      "insuranceRcv": 10578.81,
+      "lineItems": {
+        "work_doing": [
+          {
+            "product_id": 51667,
+            "product_name": "Shingles | Owens Corning | Designer Duration | Black Sable | Black Sable | Black Sable",
+            "color": "Black Sable",
+            "work_completed": false,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 2272170,
+            "note": "",
+            "rcv": 10578.81,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "price": 10578.81,
+            "insurance_invoice": 10578.81,
+            "unit": "SQ",
+            "unit_price": 459.94826,
+            "quantity": 23,
+            "photos_count": 0,
+            "photos": [],
+            "is_integrated": false
+          }
+        ],
+        "work_not_doing": [],
+        "supplineitems": [],
+        "changeorderitems": [],
+        "upgrades": [],
+        "discounts": [
+          {
+            "product_id": 71493,
+            "product_name": "Discounts | Generic | Amount Withheld",
+            "color": null,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 2725025,
+            "price": -5276.78,
+            "note": ""
+          }
+        ],
+        "summary": {
+          "work_doing": {
+            "rcv": 10578.81,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "insurance_invoice": 10578.81,
+            "price": 10578.81
+          },
+          "work_not_doing": {
+            "rcv": 0,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "insurance_invoice": 0,
+            "price": 0
+          },
+          "supplineitems": {
+            "amt_requested": 0,
+            "amt_approved": 0,
+            "insurance_invoice": 0,
+            "price": 0
+          },
+          "upgrades": 0,
+          "discounts": -5276.78,
+          "changeorderlineitems": 0
+        }
+      }
+    },
+    {
+      "jobId": 858922,
+      "estimateId": 238249,
+      "customerName": "Kwame Opoku",
+      "address": "1904 Roselle Court, Arlington, TX  76018",
+      "installDate": "2023-05-30T16:34:38.058862-05:00",
+      "repName": "Robert McAdams",
+      "region": "Dallas",
+      "amountWithheld": 4285.76,
+      "contractPrice": 29615.85,
+      "balance": 1214.24,
+      "insuranceRcv": 39551.61,
+      "lineItems": {
+        "work_doing": [
+          {
+            "product_id": 42144,
+            "product_name": "Final Contract Price",
+            "color": "Standard Charcoal",
+            "work_completed": false,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 803868,
+            "note": "",
+            "rcv": 39551.61,
+            "recoverable_depreciation": 4274.78,
+            "non_recoverable_depreciation": 0,
+            "price": 39551.61,
+            "insurance_invoice": 39551.61,
+            "unit": "EA",
+            "unit_price": 1156.47982,
+            "quantity": 34.2,
+            "photos_count": 0,
+            "photos": [],
+            "is_integrated": false
+          }
+        ],
+        "work_not_doing": [],
+        "supplineitems": [],
+        "changeorderitems": [],
+        "upgrades": [],
+        "discounts": [
+          {
+            "product_id": 71493,
+            "product_name": "Discounts | Generic | Amount Withheld",
+            "color": null,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 935318,
+            "price": -4285.76,
+            "note": ""
+          }
+        ],
+        "summary": {
+          "work_doing": {
+            "rcv": 39551.61,
+            "recoverable_depreciation": 4274.78,
+            "non_recoverable_depreciation": 0,
+            "insurance_invoice": 39551.61,
+            "price": 39551.61
+          },
+          "work_not_doing": {
+            "rcv": 0,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "insurance_invoice": 0,
+            "price": 0
+          },
+          "supplineitems": {
+            "amt_requested": 0,
+            "amt_approved": 0,
+            "insurance_invoice": 0,
+            "price": 0
+          },
+          "upgrades": 0,
+          "discounts": -4285.76,
+          "changeorderlineitems": 0
+        }
+      }
+    },
+    {
+      "jobId": 3249994,
+      "estimateId": 589561,
+      "customerName": "Audrey Adams",
+      "address": "1011 Thomas Ave, Monroe, LA  71202",
+      "installDate": "2025-09-15T10:45:00-05:00",
+      "repName": "Fushia McFashion",
+      "region": "Shreveport",
+      "amountWithheld": 3710.44,
+      "contractPrice": 7710.44,
+      "balance": 3710.44,
+      "insuranceRcv": 8710.44,
+      "lineItems": {
+        "work_doing": [
+          {
+            "product_id": 42083,
+            "product_name": "Shingles | Lifetime | GAF | Timberline HDZ | Weathered Wood",
+            "color": "Weathered Wood",
+            "work_completed": false,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 1985549,
+            "note": "*Roof Replacement as per insurance scope of repairs\n* Tear Off 1 Layer of existing roofing shingles and felt\n* Replace any rotten wood at $75 per sheet\n* Install 1 Layer of new synthetic felt underlayment nailed to deck using approved fasteners.\n* Replace all Pipe Boots, Roof Vents and Re-flash as needed.\n* Install Ice/Water shield moisture barrier in all valleys. \n* Install Ridge Cap on Hips & Ridges\n* Remove & Replace 1.5\" Drip Edge Painted IF NEEDED\n* Tear off & haul away debris with onsite dumpster\n* Full & Thorough Cleanup\n* Limited Lifetime Warranty on materials from manufacturer",
+            "rcv": 8710.44,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "price": 8710.44,
+            "insurance_invoice": 8710.44,
+            "unit": "SQ",
+            "unit_price": 354.08293,
+            "quantity": 24.6,
+            "photos_count": 0,
+            "photos": [],
+            "is_integrated": false
+          }
+        ],
+        "work_not_doing": [],
+        "supplineitems": [],
+        "changeorderitems": [],
+        "upgrades": [],
+        "discounts": [
+          {
+            "product_id": 71491,
+            "product_name": "Discounts | Generic | Marketing Fee",
+            "color": null,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 2090207,
+            "price": -1000,
+            "note": ""
+          },
+          {
+            "product_id": 71493,
+            "product_name": "Discounts | Generic | Amount Withheld",
+            "color": null,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 2728327,
+            "price": -3710.44,
+            "note": ""
+          }
+        ],
+        "summary": {
+          "work_doing": {
+            "rcv": 8710.44,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "insurance_invoice": 8710.44,
+            "price": 8710.44
+          },
+          "work_not_doing": {
+            "rcv": 0,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "insurance_invoice": 0,
+            "price": 0
+          },
+          "supplineitems": {
+            "amt_requested": 0,
+            "amt_approved": 0,
+            "insurance_invoice": 0,
+            "price": 0
+          },
+          "upgrades": 0,
+          "discounts": -4710.44,
+          "changeorderlineitems": 0
+        }
+      }
+    },
+    {
+      "jobId": 1321914,
+      "estimateId": 264903,
+      "customerName": "Patrick Keller",
+      "address": "906 Rancho Drive, Mesquite, TX  75149",
+      "installDate": "2023-07-27T14:47:14.105568-05:00",
+      "repName": "Aaron Carr",
+      "region": "Dallas",
+      "amountWithheld": 3507.5,
+      "contractPrice": 9455,
+      "balance": 500,
+      "insuranceRcv": 14338.5,
+      "lineItems": {
+        "work_doing": [
+          {
+            "product_id": 42144,
+            "product_name": "final contract price",
+            "color": null,
+            "work_completed": false,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 953296,
+            "note": "",
+            "rcv": 13638.5,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "price": 13638.5,
+            "insurance_invoice": 13638.5,
+            "unit": "EA",
+            "unit_price": 13638.5,
+            "quantity": 1,
+            "photos_count": 0,
+            "photos": [],
+            "is_integrated": false
+          },
+          {
+            "product_id": 70530,
+            "product_name": "Supplement | Generic | Approved Supplement",
+            "color": null,
+            "work_completed": false,
+            "trade_id": 24,
+            "trade_name": "Supplement",
+            "id": 953298,
+            "note": "",
+            "rcv": 700,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "price": 700,
+            "insurance_invoice": 700,
+            "unit": "EA",
+            "unit_price": 700,
+            "quantity": 1,
+            "photos_count": 0,
+            "photos": [],
+            "is_integrated": false
+          }
+        ],
+        "work_not_doing": [],
+        "supplineitems": [],
+        "changeorderitems": [],
+        "upgrades": [],
+        "discounts": [
+          {
+            "product_id": 71491,
+            "product_name": "Discounts | Generic | Marketing Fee",
+            "color": null,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 953303,
+            "price": -1376,
+            "note": ""
+          },
+          {
+            "product_id": 71493,
+            "product_name": "Discounts | Generic | Amount Withheld",
+            "color": null,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 953307,
+            "price": -3507.5,
+            "note": ""
+          }
+        ],
+        "summary": {
+          "work_doing": {
+            "rcv": 14338.5,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "insurance_invoice": 14338.5,
+            "price": 14338.5
+          },
+          "work_not_doing": {
+            "rcv": 0,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "insurance_invoice": 0,
+            "price": 0
+          },
+          "supplineitems": {
+            "amt_requested": 0,
+            "amt_approved": 0,
+            "insurance_invoice": 0,
+            "price": 0
+          },
+          "upgrades": 0,
+          "discounts": -4883.5,
+          "changeorderlineitems": 0
+        }
+      }
+    },
+    {
+      "jobId": 3493002,
+      "estimateId": 676157,
+      "customerName": "Jose Vasquez",
+      "address": "2005 Cordova Bend, Irving, TX  75060",
+      "installDate": "2025-12-09T15:36:25.843795-06:00",
+      "repName": "Sean McCarty",
+      "region": "Dallas",
+      "amountWithheld": 3502.32,
+      "contractPrice": 12973.63,
+      "balance": 3502.32,
+      "insuranceRcv": 12973.63,
+      "lineItems": {
+        "work_doing": [
+          {
+            "product_id": 42083,
+            "product_name": "Shingles | Lifetime | GAF | Timberline HDZ",
+            "color": "Hickory",
+            "work_completed": false,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 2272997,
+            "note": "*Roof Replacement as per insurance scope of repairs\n* Tear Off 1 Layer of existing roofing shingles and felt\n* Replace any rotten wood at $75 per sheet\n* Install 1 Layer of new synthetic felt underlayment nailed to deck using approved fasteners.\n* Replace all Pipe Boots, Roof Vents and Re-flash as needed.\n* Install Ice/Water shield moisture barrier in all valleys. \n* Install Ridge Cap on Hips & Ridges\n* Remove & Replace 1.5\" Drip Edge Painted IF NEEDED\n* Tear off & haul away debris with onsite dumpster\n* Full & Thorough Cleanup\n* Limited Lifetime Warranty on materials from manufacturer",
+            "rcv": 12973.63,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "price": 12973.63,
+            "insurance_invoice": 12973.63,
+            "unit": "SQ",
+            "unit_price": 384.97418,
+            "quantity": 33.7,
+            "photos_count": 0,
+            "photos": [],
+            "is_integrated": false
+          }
+        ],
+        "work_not_doing": [],
+        "supplineitems": [],
+        "changeorderitems": [],
+        "upgrades": [],
+        "discounts": [
+          {
+            "product_id": 71493,
+            "product_name": "Discounts | Generic | Amount Withheld",
+            "color": null,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 2724684,
+            "price": -3502.32,
+            "note": ""
+          }
+        ],
+        "summary": {
+          "work_doing": {
+            "rcv": 12973.63,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "insurance_invoice": 12973.63,
+            "price": 12973.63
+          },
+          "work_not_doing": {
+            "rcv": 0,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "insurance_invoice": 0,
+            "price": 0
+          },
+          "supplineitems": {
+            "amt_requested": 0,
+            "amt_approved": 0,
+            "insurance_invoice": 0,
+            "price": 0
+          },
+          "upgrades": 0,
+          "discounts": -3502.32,
+          "changeorderlineitems": 0
+        }
+      }
+    },
+    {
+      "jobId": 3605020,
+      "estimateId": 640936,
+      "customerName": "Katherine Swagger",
+      "address": "4407 Deidra St, Bossier City, LA  71111",
+      "installDate": "2025-10-24T15:49:00-05:00",
+      "repName": "James Venable",
+      "region": "Shreveport",
+      "amountWithheld": 3001.14,
+      "contractPrice": 14096.59,
+      "balance": 3001.14,
+      "insuranceRcv": 14096.59,
+      "lineItems": {
+        "work_doing": [
+          {
+            "product_id": 42083,
+            "product_name": "Shingles | Lifetime | GAF | Timberline HDZ | Weathered Wood",
+            "color": "Weathered Wood",
+            "work_completed": false,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 2163283,
+            "note": "*Roof Replacement as per insurance scope of repairs\n* Tear Off 1 Layer of existing roofing shingles and felt\n* Replace any rotten wood at $75 per sheet\n* Install 1 Layer of new synthetic felt underlayment nailed to deck using approved fasteners.\n* Replace all Pipe Boots, Roof Vents and Re-flash as needed.\n* Install Ice/Water shield moisture barrier in all valleys. \n* Install Ridge Cap on Hips & Ridges\n* Remove & Replace 1.5\" Drip Edge Painted IF NEEDED\n* Tear off & haul away debris with onsite dumpster\n* Full & Thorough Cleanup\n* Limited Lifetime Warranty on materials from manufacturer",
+            "rcv": 14096.59,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "price": 14096.59,
+            "insurance_invoice": 14096.59,
+            "unit": "SQ",
+            "unit_price": 520.16937,
+            "quantity": 27.1,
+            "photos_count": 0,
+            "photos": [],
+            "is_integrated": false
+          }
+        ],
+        "work_not_doing": [],
+        "supplineitems": [],
+        "changeorderitems": [],
+        "upgrades": [],
+        "discounts": [
+          {
+            "product_id": 71493,
+            "product_name": "Discounts | Generic | Amount Withheld",
+            "color": null,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 2726164,
+            "price": -3001.14,
+            "note": ""
+          }
+        ],
+        "summary": {
+          "work_doing": {
+            "rcv": 14096.59,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "insurance_invoice": 14096.59,
+            "price": 14096.59
+          },
+          "work_not_doing": {
+            "rcv": 0,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "insurance_invoice": 0,
+            "price": 0
+          },
+          "supplineitems": {
+            "amt_requested": 0,
+            "amt_approved": 0,
+            "insurance_invoice": 0,
+            "price": 0
+          },
+          "upgrades": 0,
+          "discounts": -3001.14,
+          "changeorderlineitems": 0
+        }
+      }
+    },
+    {
+      "jobId": 1747912,
+      "estimateId": 345458,
+      "customerName": "MARITZA VEGA",
+      "address": "1212 Pettigrew Court, Cedar Hill, TX  75104",
+      "installDate": "2024-03-26T14:41:00-05:00",
+      "repName": "Michael Schneider",
+      "region": "Dallas",
+      "amountWithheld": 2170.67,
+      "contractPrice": 10468.08,
+      "balance": 2170.67,
+      "insuranceRcv": 12638.750000000002,
+      "lineItems": {
+        "work_doing": [
+          {
+            "product_id": 42144,
+            "product_name": "Initial RCV",
+            "color": "Charcoal",
+            "work_completed": false,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 1176059,
+            "note": "",
+            "rcv": 7095.22,
+            "recoverable_depreciation": 3517.82,
+            "non_recoverable_depreciation": 0,
+            "price": 7095.22,
+            "insurance_invoice": 7095.22,
+            "unit": "EA",
+            "unit_price": 443.45125,
+            "quantity": 16,
+            "photos_count": 0,
+            "photos": [],
+            "is_integrated": false
+          },
+          {
+            "product_id": 70530,
+            "product_name": "Supplement | Generic | Approved Supplement",
+            "color": null,
+            "work_completed": false,
+            "trade_id": 24,
+            "trade_name": "Supplement",
+            "id": 1305930,
+            "note": "",
+            "rcv": 5461.91,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "price": 5461.91,
+            "insurance_invoice": 5461.91,
+            "unit": "EA",
+            "unit_price": 5461.91,
+            "quantity": 1,
+            "photos_count": 0,
+            "photos": [],
+            "is_integrated": false
+          },
+          {
+            "product_id": 71494,
+            "product_name": "Custom | Generic | Paid Out of Pocket",
+            "color": null,
+            "work_completed": false,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 1305932,
+            "note": "",
+            "rcv": 81.62,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "price": 81.62,
+            "insurance_invoice": 81.62,
+            "unit": "EA",
+            "unit_price": 81.62,
+            "quantity": 1,
+            "photos_count": 0,
+            "photos": [],
+            "is_integrated": false
+          }
+        ],
+        "work_not_doing": [],
+        "supplineitems": [],
+        "changeorderitems": [],
+        "upgrades": [],
+        "discounts": [
+          {
+            "product_id": 71493,
+            "product_name": "Discounts | Generic | Amount Withheld",
+            "color": null,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 1557321,
+            "price": -2170.67,
+            "note": "Check bounced for the amount of 2,170.67"
+          }
+        ],
+        "summary": {
+          "work_doing": {
+            "rcv": 12638.75,
+            "recoverable_depreciation": 3517.82,
+            "non_recoverable_depreciation": 0,
+            "insurance_invoice": 12638.75,
+            "price": 12638.75
+          },
+          "work_not_doing": {
+            "rcv": 0,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "insurance_invoice": 0,
+            "price": 0
+          },
+          "supplineitems": {
+            "amt_requested": 0,
+            "amt_approved": 0,
+            "insurance_invoice": 0,
+            "price": 0
+          },
+          "upgrades": 0,
+          "discounts": -2170.67,
+          "changeorderlineitems": 0
+        }
+      }
+    },
+    {
+      "jobId": 2458750,
+      "estimateId": 666383,
+      "customerName": "Randy Smith",
+      "address": "2401 Amber Hill Ln., Euless, TX  76039",
+      "installDate": "2025-11-25T11:15:07.433409-06:00",
+      "repName": "Corinna Dilorenzo",
+      "region": "Dallas",
+      "amountWithheld": 1996,
+      "contractPrice": 17614.29,
+      "balance": 1996,
+      "insuranceRcv": 17614.29,
+      "lineItems": {
+        "work_doing": [
+          {
+            "product_id": 42144,
+            "product_name": "Custom | Custom | EA",
+            "color": "Brownwood",
+            "work_completed": false,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 2255404,
+            "note": "",
+            "rcv": 17614.29,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "price": 17614.29,
+            "insurance_invoice": 17614.29,
+            "unit": "EA",
+            "unit_price": 17614.29,
+            "quantity": 1,
+            "photos_count": 0,
+            "photos": [],
+            "is_integrated": false
+          }
+        ],
+        "work_not_doing": [],
+        "supplineitems": [],
+        "changeorderitems": [],
+        "upgrades": [],
+        "discounts": [
+          {
+            "product_id": 71493,
+            "product_name": "Discounts | Generic | Amount Withheld",
+            "color": null,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 2724660,
+            "price": -1996,
+            "note": ""
+          }
+        ],
+        "summary": {
+          "work_doing": {
+            "rcv": 17614.29,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "insurance_invoice": 17614.29,
+            "price": 17614.29
+          },
+          "work_not_doing": {
+            "rcv": 0,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "insurance_invoice": 0,
+            "price": 0
+          },
+          "supplineitems": {
+            "amt_requested": 0,
+            "amt_approved": 0,
+            "insurance_invoice": 0,
+            "price": 0
+          },
+          "upgrades": 0,
+          "discounts": -1996,
+          "changeorderlineitems": 0
+        }
+      }
+    },
+    {
+      "jobId": 1270549,
+      "estimateId": 267897,
+      "customerName": "Chadd Mclaughlin",
+      "address": "11340 Tappatio Springs Ln, Frisco, TX  75035",
+      "installDate": "2023-08-22T17:17:00-05:00",
+      "repName": "Todd Richardson",
+      "region": "Dallas",
+      "amountWithheld": 1869.65,
+      "contractPrice": 29750.52,
+      "balance": 891.49,
+      "insuranceRcv": 31620.170000000002,
+      "lineItems": {
+        "work_doing": [
+          {
+            "product_id": 42144,
+            "product_name": "final contract price",
+            "color": "Weathered Wood",
+            "work_completed": false,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 904725,
+            "note": "",
+            "rcv": 30790.12,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "price": 30790.12,
+            "insurance_invoice": 30790.12,
+            "unit": "EA",
+            "unit_price": 733.0981,
+            "quantity": 42,
+            "photos_count": 0,
+            "photos": [],
+            "is_integrated": false
+          },
+          {
+            "product_id": 42144,
+            "product_name": "non-recoverable",
+            "color": null,
+            "work_completed": false,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 992272,
+            "note": "",
+            "rcv": -61.44,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "price": -61.44,
+            "insurance_invoice": -61.44,
+            "unit": "EA",
+            "unit_price": -61.44,
+            "quantity": 1,
+            "photos_count": 0,
+            "photos": [],
+            "is_integrated": false
+          },
+          {
+            "product_id": 71494,
+            "product_name": "Custom | Generic | Paid Out of Pocket",
+            "color": null,
+            "work_completed": false,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 1055812,
+            "note": "",
+            "rcv": 891.49,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "price": 891.49,
+            "insurance_invoice": 891.49,
+            "unit": "EA",
+            "unit_price": 891.49,
+            "quantity": 1,
+            "photos_count": 0,
+            "photos": [],
+            "is_integrated": false
+          }
+        ],
+        "work_not_doing": [],
+        "supplineitems": [],
+        "changeorderitems": [],
+        "upgrades": [],
+        "discounts": [
+          {
+            "product_id": 71493,
+            "product_name": "Discounts | Generic | Amount Withheld",
+            "color": null,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 992289,
+            "price": -1869.65,
+            "note": ""
+          }
+        ],
+        "summary": {
+          "work_doing": {
+            "rcv": 31620.17,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "insurance_invoice": 31620.17,
+            "price": 31620.17
+          },
+          "work_not_doing": {
+            "rcv": 0,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "insurance_invoice": 0,
+            "price": 0
+          },
+          "supplineitems": {
+            "amt_requested": 0,
+            "amt_approved": 0,
+            "insurance_invoice": 0,
+            "price": 0
+          },
+          "upgrades": 0,
+          "discounts": -1869.65,
+          "changeorderlineitems": 0
+        }
+      }
+    },
+    {
+      "jobId": 1409126,
+      "estimateId": 281398,
+      "customerName": "Beverly Pipkins",
+      "address": "205 West Redbud Lane, Lancaster, TX  75146",
+      "installDate": "2023-08-29T17:18:44.973645-05:00",
+      "repName": "John Giordano",
+      "region": "Dallas",
+      "amountWithheld": 1833,
+      "contractPrice": 19532.36,
+      "balance": 500,
+      "insuranceRcv": 21365.36,
+      "lineItems": {
+        "work_doing": [
+          {
+            "product_id": 42144,
+            "product_name": "final contract price",
+            "color": "Shakewood",
+            "work_completed": false,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 955072,
+            "note": "",
+            "rcv": 14799.42,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "price": 14799.42,
+            "insurance_invoice": 14799.42,
+            "unit": "EA",
+            "unit_price": 336.35045,
+            "quantity": 44,
+            "photos_count": 0,
+            "photos": [],
+            "is_integrated": false
+          },
+          {
+            "product_id": 42144,
+            "product_name": "Stripe Fee",
+            "color": null,
+            "work_completed": false,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 987040,
+            "note": "",
+            "rcv": -9,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "price": -9,
+            "insurance_invoice": -9,
+            "unit": "EA",
+            "unit_price": -9,
+            "quantity": 1,
+            "photos_count": 0,
+            "photos": [],
+            "is_integrated": false
+          },
+          {
+            "product_id": 42144,
+            "product_name": "Stripe Fee",
+            "color": null,
+            "work_completed": false,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 987042,
+            "note": "",
+            "rcv": -21.96,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "price": -21.96,
+            "insurance_invoice": -21.96,
+            "unit": "EA",
+            "unit_price": -21.96,
+            "quantity": 1,
+            "photos_count": 0,
+            "photos": [],
+            "is_integrated": false
+          },
+          {
+            "product_id": 70530,
+            "product_name": "Supplement | Generic | Approved Supplement",
+            "color": null,
+            "work_completed": false,
+            "trade_id": 24,
+            "trade_name": "Supplement",
+            "id": 987201,
+            "note": "",
+            "rcv": 6596.9,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "price": 6596.9,
+            "insurance_invoice": 6596.9,
+            "unit": "EA",
+            "unit_price": 6596.9,
+            "quantity": 1,
+            "photos_count": 0,
+            "photos": [],
+            "is_integrated": false
+          }
+        ],
+        "work_not_doing": [],
+        "supplineitems": [],
+        "changeorderitems": [],
+        "upgrades": [],
+        "discounts": [
+          {
+            "product_id": 71493,
+            "product_name": "Discounts | Generic | Amount Withheld",
+            "color": null,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 987232,
+            "price": -1833,
+            "note": ""
+          }
+        ],
+        "summary": {
+          "work_doing": {
+            "rcv": 21365.36,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "insurance_invoice": 21365.36,
+            "price": 21365.36
+          },
+          "work_not_doing": {
+            "rcv": 0,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "insurance_invoice": 0,
+            "price": 0
+          },
+          "supplineitems": {
+            "amt_requested": 0,
+            "amt_approved": 0,
+            "insurance_invoice": 0,
+            "price": 0
+          },
+          "upgrades": 0,
+          "discounts": -1833,
+          "changeorderlineitems": 0
+        }
+      }
+    },
+    {
+      "jobId": 432023,
+      "estimateId": 95130,
+      "customerName": "Byron Lopez",
+      "address": "2506 Melissa Lane, Carrollton, TX  75006",
+      "installDate": "2022-02-25T09:39:09.247077-06:00",
+      "repName": "Shakib Dakhan",
+      "region": "Dallas",
+      "amountWithheld": 608.88,
+      "contractPrice": 18520.47,
+      "balance": 0.06,
+      "insuranceRcv": 19147.35,
+      "lineItems": {
+        "work_doing": [
+          {
+            "product_id": 42077,
+            "product_name": "final estimate",
+            "color": "Estate Gray",
+            "work_completed": false,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 293067,
+            "note": "*Roof Replacement as per insurance scope of repairs\n* Tear Off 1 Layer of existing roofing shingles and felt\n* Replace any rotten wood at $75 per sheet\n* Install 1 Layer of new synthetic felt underlayment nailed to deck using approved fasteners.\n* Replace all Pipe Boots, Roof Vents and Re-flash as needed.\n* Install Ice/Water shield moisture barrier in all valleys. \n* Install Ridge Cap on Hips & Ridges\n* Remove & Replace 1.5\" Drip Edge Painted IF NEEDED\n* Tear off & haul away debris with onsite dumpster\n* Full & Thorough Cleanup\n* Limited Lifetime Warranty on materials from manufacturer",
+            "rcv": 17467.35,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "price": 17467.35,
+            "insurance_invoice": 17467.35,
+            "unit": "SQ",
+            "unit_price": 599.01749,
+            "quantity": 29.16,
+            "photos_count": 0,
+            "photos": [],
+            "is_integrated": false
+          },
+          {
+            "product_id": 71494,
+            "product_name": "Custom | Generic | Paid Out of Pocket",
+            "color": null,
+            "work_completed": false,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 333142,
+            "note": "",
+            "rcv": 1680,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "price": 1680,
+            "insurance_invoice": 1680,
+            "unit": "EA",
+            "unit_price": 1680,
+            "quantity": 1,
+            "photos_count": 0,
+            "photos": [],
+            "is_integrated": false
+          }
+        ],
+        "work_not_doing": [],
+        "supplineitems": [
+          {
+            "product_id": 70530,
+            "product_name": "Supplement | Generic | Approved Supplement",
+            "color": null,
+            "trade_id": 24,
+            "trade_name": "Supplement",
+            "id": 16584,
+            "amt_requested": 0,
+            "amt_approved": "Not Approved",
+            "insurance_invoice": 0,
+            "price": 0,
+            "note": ""
+          }
+        ],
+        "changeorderitems": [],
+        "upgrades": [],
+        "discounts": [
+          {
+            "product_id": 71491,
+            "product_name": "Discounts | Generic | Marketing Fee",
+            "color": null,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 333134,
+            "price": -2680,
+            "note": ""
+          },
+          {
+            "product_id": 71493,
+            "product_name": "Discounts | Generic | Amount Withheld",
+            "color": null,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 333143,
+            "price": -608.88,
+            "note": ""
+          }
+        ],
+        "summary": {
+          "work_doing": {
+            "rcv": 19147.35,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "insurance_invoice": 19147.35,
+            "price": 19147.35
+          },
+          "work_not_doing": {
+            "rcv": 0,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "insurance_invoice": 0,
+            "price": 0
+          },
+          "supplineitems": {
+            "amt_requested": 0,
+            "amt_approved": 2662,
+            "insurance_invoice": 0,
+            "price": 0
+          },
+          "upgrades": 0,
+          "discounts": -3288.88,
+          "changeorderlineitems": 0
+        }
+      }
+    },
+    {
+      "jobId": 3622411,
+      "estimateId": 669267,
+      "customerName": "Lisa Douglas",
+      "address": "449 Rutledge Ave, Shreveport, LA  71106",
+      "installDate": "2025-11-21T13:10:31.666322-06:00",
+      "repName": "Tiara Page",
+      "region": "Shreveport",
+      "amountWithheld": 572.9,
+      "contractPrice": 7698.98,
+      "balance": 286.45,
+      "insuranceRcv": 8485.43,
+      "lineItems": {
+        "work_doing": [
+          {
+            "product_id": 42083,
+            "product_name": "Shingles | Lifetime | GAF | Timberline HDZ | Hickory",
+            "color": "Hickory",
+            "work_completed": false,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 2246971,
+            "note": "*Roof Replacement as per insurance scope of repairs\n* Tear Off 1 Layer of existing roofing shingles and felt\n* Replace any rotten wood at $75 per sheet\n* Install 1 Layer of new synthetic felt underlayment nailed to deck using approved fasteners.\n* Replace all Pipe Boots, Roof Vents and Re-flash as needed.\n* Install Ice/Water shield moisture barrier in all valleys. \n* Install Ridge Cap on Hips & Ridges\n* Remove & Replace 1.5\" Drip Edge Painted IF NEEDED\n* Tear off & haul away debris with onsite dumpster\n* Full & Thorough Cleanup\n* Limited Lifetime Warranty on materials from manufacturer",
+            "rcv": 8198.98,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "price": 8198.98,
+            "insurance_invoice": 8198.98,
+            "unit": "SQ",
+            "unit_price": 509.25342,
+            "quantity": 16.1,
+            "photos_count": 0,
+            "photos": [],
+            "is_integrated": false
+          },
+          {
+            "product_id": 70530,
+            "product_name": "Supplement | Generic | Approved Supplement",
+            "color": null,
+            "work_completed": false,
+            "trade_id": 24,
+            "trade_name": "Supplement",
+            "id": 2726235,
+            "note": "",
+            "rcv": 286.45,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "price": 286.45,
+            "insurance_invoice": 286.45,
+            "unit": "EA",
+            "unit_price": 286.45,
+            "quantity": 1,
+            "photos_count": 0,
+            "photos": [],
+            "is_integrated": false
+          }
+        ],
+        "work_not_doing": [],
+        "supplineitems": [],
+        "changeorderitems": [],
+        "upgrades": [],
+        "discounts": [
+          {
+            "product_id": 71491,
+            "product_name": "Discounts | Generic | Marketing Fee",
+            "color": null,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 2250271,
+            "price": -500,
+            "note": ""
+          },
+          {
+            "product_id": 71493,
+            "product_name": "Discounts | Generic | Amount Withheld",
+            "color": null,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 2730390,
+            "price": -572.9,
+            "note": ""
+          }
+        ],
+        "summary": {
+          "work_doing": {
+            "rcv": 8485.43,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "insurance_invoice": 8485.43,
+            "price": 8485.43
+          },
+          "work_not_doing": {
+            "rcv": 0,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "insurance_invoice": 0,
+            "price": 0
+          },
+          "supplineitems": {
+            "amt_requested": 0,
+            "amt_approved": 0,
+            "insurance_invoice": 0,
+            "price": 0
+          },
+          "upgrades": 0,
+          "discounts": -1072.9,
+          "changeorderlineitems": 0
+        }
+      }
+    },
+    {
+      "jobId": 521999,
+      "estimateId": 111440,
+      "customerName": "RAUL RAMON",
+      "address": "7610 Leeward Lane, Rowlett, TX  75088",
+      "installDate": "2022-04-07T16:49:44.761091-05:00",
+      "repName": "David Jones",
+      "region": "Dallas",
+      "amountWithheld": 548.07,
+      "contractPrice": 16653.13,
+      "balance": 0.13,
+      "insuranceRcv": 26049.31,
+      "lineItems": {
+        "work_doing": [
+          {
+            "product_id": 48291,
+            "product_name": "Final Contract Price",
+            "color": "Brownwood",
+            "work_completed": false,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 334560,
+            "note": "*Roof Replacement as per insurance scope of repairs\n* Tear Off 1 Layer of existing roofing shingles and felt\n* Replace any rotten wood at $75 per sheet\n* Install 1 Layer of new synthetic felt underlayment nailed to deck using approved fasteners.\n* Replace all Pipe Boots, Roof Vents and Re-flash as needed.\n* Install Ice/Water shield moisture barrier in all valleys. \n* Install Ridge Cap on Hips & Ridges\n* Remove & Replace 1.5\" Drip Edge Painted IF NEEDED\n* Tear off & haul away debris with onsite dumpster\n* Full & Thorough Cleanup\n* Limited Lifetime Warranty on materials from manufacturer",
+            "rcv": 21039.31,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "price": 21039.31,
+            "insurance_invoice": 21039.31,
+            "unit": "BD",
+            "unit_price": 190.57346,
+            "quantity": 110.4,
+            "photos_count": 0,
+            "photos": [],
+            "is_integrated": false
+          },
+          {
+            "product_id": 71494,
+            "product_name": "Custom | Generic | Paid Out of Pocket",
+            "color": null,
+            "work_completed": false,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 366478,
+            "note": "",
+            "rcv": 5010,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "price": 5010,
+            "insurance_invoice": 5010,
+            "unit": "EA",
+            "unit_price": 5010,
+            "quantity": 1,
+            "photos_count": 0,
+            "photos": [],
+            "is_integrated": false
+          }
+        ],
+        "work_not_doing": [],
+        "supplineitems": [
+          {
+            "product_id": 70530,
+            "product_name": "Supplement | Generic | Approved Supplement",
+            "color": null,
+            "trade_id": 24,
+            "trade_name": "Supplement",
+            "id": 17659,
+            "amt_requested": 0,
+            "amt_approved": "Not Approved",
+            "insurance_invoice": 0,
+            "price": 0,
+            "note": ""
+          }
+        ],
+        "changeorderitems": [],
+        "upgrades": [],
+        "discounts": [
+          {
+            "product_id": 71491,
+            "product_name": "Discounts | Generic | Marketing Fee",
+            "color": null,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 366474,
+            "price": -5010,
+            "note": ""
+          },
+          {
+            "product_id": 71493,
+            "product_name": "Discounts | Generic | Amount Withheld",
+            "color": null,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 366477,
+            "price": -548.07,
+            "note": ""
+          },
+          {
+            "product_id": 71493,
+            "product_name": "Discounts | Generic | Amount Withheld",
+            "color": null,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 366513,
+            "price": -4062.79,
+            "note": ""
+          }
+        ],
+        "summary": {
+          "work_doing": {
+            "rcv": 26049.31,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "insurance_invoice": 26049.31,
+            "price": 26049.31
+          },
+          "work_not_doing": {
+            "rcv": 0,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "insurance_invoice": 0,
+            "price": 0
+          },
+          "supplineitems": {
+            "amt_requested": 0,
+            "amt_approved": 224.68,
+            "insurance_invoice": 0,
+            "price": 0
+          },
+          "upgrades": 0,
+          "discounts": -9620.86,
+          "changeorderlineitems": 0
+        }
+      }
+    },
+    {
+      "jobId": 2187900,
+      "estimateId": 410379,
+      "customerName": "Shay Williams",
+      "address": "2620 wavecrest, little elm, TX  75068",
+      "installDate": "2024-07-30T16:51:00-05:00",
+      "repName": "A.J. Greco",
+      "region": "Dallas",
+      "amountWithheld": 505.65,
+      "contractPrice": 16136.59,
+      "balance": 5372,
+      "insuranceRcv": 16642.24,
+      "lineItems": {
+        "work_doing": [
+          {
+            "product_id": 42144,
+            "product_name": "Total Contract Price",
+            "color": "Weathered Wood",
+            "work_completed": false,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 1376733,
+            "note": "",
+            "rcv": 15845.9,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "price": 15845.9,
+            "insurance_invoice": 15845.9,
+            "unit": "EA",
+            "unit_price": 559.9258,
+            "quantity": 28.3,
+            "photos_count": 0,
+            "photos": [],
+            "is_integrated": false
+          },
+          {
+            "product_id": 70530,
+            "product_name": "Supplement | Generic | Approved Supplement",
+            "color": null,
+            "work_completed": false,
+            "trade_id": 24,
+            "trade_name": "Supplement",
+            "id": 1605669,
+            "note": "",
+            "rcv": 1086.26,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "price": 1086.26,
+            "insurance_invoice": 1086.26,
+            "unit": "EA",
+            "unit_price": 1086.26,
+            "quantity": 1,
+            "photos_count": 0,
+            "photos": [],
+            "is_integrated": false
+          },
+          {
+            "product_id": 42144,
+            "product_name": "non-recoverable",
+            "color": null,
+            "work_completed": false,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 1605680,
+            "note": "",
+            "rcv": -289.92,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "price": -289.92,
+            "insurance_invoice": -289.92,
+            "unit": "EA",
+            "unit_price": -289.92,
+            "quantity": 1,
+            "photos_count": 0,
+            "photos": [],
+            "is_integrated": false
+          }
+        ],
+        "work_not_doing": [],
+        "supplineitems": [],
+        "changeorderitems": [],
+        "upgrades": [],
+        "discounts": [
+          {
+            "product_id": 71493,
+            "product_name": "Discounts | Generic | Amount Withheld",
+            "color": null,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 1611068,
+            "price": -505.65,
+            "note": ""
+          }
+        ],
+        "summary": {
+          "work_doing": {
+            "rcv": 16642.24,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "insurance_invoice": 16642.24,
+            "price": 16642.24
+          },
+          "work_not_doing": {
+            "rcv": 0,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "insurance_invoice": 0,
+            "price": 0
+          },
+          "supplineitems": {
+            "amt_requested": 0,
+            "amt_approved": 0,
+            "insurance_invoice": 0,
+            "price": 0
+          },
+          "upgrades": 0,
+          "discounts": -505.65,
+          "changeorderlineitems": 0
+        }
+      }
+    },
+    {
+      "jobId": 1241368,
+      "estimateId": 251827,
+      "customerName": "Tonya Mitchell",
+      "address": "238 East Ridgegate Drive, Garland, TX  75040",
+      "installDate": "2023-06-27T13:12:00-05:00",
+      "repName": "Randy Adams",
+      "region": "Dallas",
+      "amountWithheld": 500.25,
+      "contractPrice": 17950.12,
+      "balance": 5,
+      "insuranceRcv": 18450.37,
+      "lineItems": {
+        "work_doing": [
+          {
+            "product_id": 42144,
+            "product_name": "final contract price",
+            "color": "Shakewood",
+            "work_completed": false,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 844295,
+            "note": "",
+            "rcv": 15690.5,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "price": 15690.5,
+            "insurance_invoice": 15690.5,
+            "unit": "EA",
+            "unit_price": 475.4697,
+            "quantity": 33,
+            "photos_count": 0,
+            "photos": [],
+            "is_integrated": false
+          },
+          {
+            "product_id": 70530,
+            "product_name": "Supplement | Generic | Approved Supplement",
+            "color": null,
+            "work_completed": false,
+            "trade_id": 24,
+            "trade_name": "Supplement",
+            "id": 1014795,
+            "note": "",
+            "rcv": 2759.87,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "price": 2759.87,
+            "insurance_invoice": 2759.87,
+            "unit": "EA",
+            "unit_price": 2759.87,
+            "quantity": 1,
+            "photos_count": 0,
+            "photos": [],
+            "is_integrated": false
+          }
+        ],
+        "work_not_doing": [],
+        "supplineitems": [],
+        "changeorderitems": [],
+        "upgrades": [],
+        "discounts": [
+          {
+            "product_id": 71493,
+            "product_name": "Discounts | Generic | Amount Withheld",
+            "color": null,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 1014805,
+            "price": -500.25,
+            "note": ""
+          }
+        ],
+        "summary": {
+          "work_doing": {
+            "rcv": 18450.37,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "insurance_invoice": 18450.37,
+            "price": 18450.37
+          },
+          "work_not_doing": {
+            "rcv": 0,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "insurance_invoice": 0,
+            "price": 0
+          },
+          "supplineitems": {
+            "amt_requested": 0,
+            "amt_approved": 0,
+            "insurance_invoice": 0,
+            "price": 0
+          },
+          "upgrades": 0,
+          "discounts": -500.25,
+          "changeorderlineitems": 0
+        }
+      }
+    },
+    {
+      "jobId": 399397,
+      "estimateId": 88432,
+      "customerName": "Cherry McSpadden",
+      "address": "8515 Prescott Cir, Frisco, TX  75033",
+      "installDate": "2022-01-06T10:31:54.457770-06:00",
+      "repName": "Elias Rodriguez",
+      "region": "Dallas",
+      "amountWithheld": 500.05,
+      "contractPrice": 20692.75,
+      "balance": 5561.74,
+      "insuranceRcv": 21876.79,
+      "lineItems": {
+        "work_doing": [
+          {
+            "product_id": 42083,
+            "product_name": "Final Contract Price",
+            "color": "Weathered Wood",
+            "work_completed": false,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 275092,
+            "note": "*Roof Replacement as per insurance scope of repairs\n* Tear Off 1 Layer of existing roofing shingles and felt\n* Replace any rotten wood at $75 per sheet\n* Install 1 Layer of new synthetic felt underlayment nailed to deck using approved fasteners.\n* Replace all Pipe Boots, Roof Vents and Re-flash as needed.\n* Install Ice/Water shield moisture barrier in all valleys. \n* Install Ridge Cap on Hips & Ridges\n* Remove & Replace 1.5\" Drip Edge Painted IF NEEDED\n* Tear off & haul away debris with onsite dumpster\n* Full & Thorough Cleanup\n* Limited Lifetime Warranty on materials from manufacturer",
+            "rcv": 21876.79,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "price": 21876.79,
+            "insurance_invoice": 21876.79,
+            "unit": "SQ",
+            "unit_price": 645.33304,
+            "quantity": 33.9,
+            "photos_count": 0,
+            "photos": [],
+            "is_integrated": false
+          }
+        ],
+        "work_not_doing": [],
+        "supplineitems": [
+          {
+            "product_id": 70530,
+            "product_name": "Supplement | Generic | Approved Supplement",
+            "color": null,
+            "trade_id": 24,
+            "trade_name": "Supplement",
+            "id": 15056,
+            "amt_requested": 0,
+            "amt_approved": "Not Approved",
+            "insurance_invoice": 0,
+            "price": 0,
+            "note": ""
+          }
+        ],
+        "changeorderitems": [],
+        "upgrades": [],
+        "discounts": [
+          {
+            "product_id": 71491,
+            "product_name": "Discounts | Generic | Marketing Fee",
+            "color": null,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 306715,
+            "price": -3950,
+            "note": ""
+          },
+          {
+            "product_id": 71493,
+            "product_name": "Discounts | Generic | Amount Withheld",
+            "color": null,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 314979,
+            "price": -500.05,
+            "note": ""
+          }
+        ],
+        "summary": {
+          "work_doing": {
+            "rcv": 21876.79,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "insurance_invoice": 21876.79,
+            "price": 21876.79
+          },
+          "work_not_doing": {
+            "rcv": 0,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "insurance_invoice": 0,
+            "price": 0
+          },
+          "supplineitems": {
+            "amt_requested": 0,
+            "amt_approved": 3266.01,
+            "insurance_invoice": 0,
+            "price": 0
+          },
+          "upgrades": 0,
+          "discounts": -4450.05,
+          "changeorderlineitems": 0
+        }
+      }
+    },
+    {
+      "jobId": 3347494,
+      "estimateId": 603764,
+      "customerName": "Darneka Govan",
+      "address": "1812 Ridgecrest Dr, Shreveport, LA  71118",
+      "installDate": "2025-08-27T14:19:00-05:00",
+      "repName": "Sandra Clingan",
+      "region": "Dallas",
+      "amountWithheld": 411.38,
+      "contractPrice": 9858.27,
+      "balance": 427.62,
+      "insuranceRcv": 11474.51,
+      "lineItems": {
+        "work_doing": [
+          {
+            "product_id": 42083,
+            "product_name": "Shingles | Lifetime | GAF | Timberline HDZ",
+            "color": "Shakewood",
+            "work_completed": false,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 2036649,
+            "note": "*Roof Replacement as per insurance scope of repairs\n* Tear Off 1 Layer of existing roofing shingles and felt\n* Replace any rotten wood at $75 per sheet\n* Install 1 Layer of new synthetic felt underlayment nailed to deck using approved fasteners.\n* Replace all Pipe Boots, Roof Vents and Re-flash as needed.\n* Install Ice/Water shield moisture barrier in all valleys. \n* Install Ridge Cap on Hips & Ridges\n* Remove & Replace 1.5\" Drip Edge Painted IF NEEDED\n* Tear off & haul away debris with onsite dumpster\n* Full & Thorough Cleanup\n* Limited Lifetime Warranty on materials from manufacturer",
+            "rcv": 10532.66,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "price": 10532.66,
+            "insurance_invoice": 10532.66,
+            "unit": "SQ",
+            "unit_price": 416.31067,
+            "quantity": 25.3,
+            "photos_count": 0,
+            "photos": [],
+            "is_integrated": false
+          },
+          {
+            "product_id": 70530,
+            "product_name": "Supplement | Generic | Approved Supplement",
+            "color": null,
+            "work_completed": false,
+            "trade_id": 24,
+            "trade_name": "Supplement",
+            "id": 2196139,
+            "note": "",
+            "rcv": 941.85,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "price": 941.85,
+            "insurance_invoice": 941.85,
+            "unit": "EA",
+            "unit_price": 941.85,
+            "quantity": 1,
+            "photos_count": 0,
+            "photos": [],
+            "is_integrated": false
+          }
+        ],
+        "work_not_doing": [],
+        "supplineitems": [],
+        "changeorderitems": [],
+        "upgrades": [],
+        "discounts": [
+          {
+            "product_id": 138816,
+            "product_name": "Discounts | Custom | Work Not Performed",
+            "color": null,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 2037527,
+            "price": -816.24,
+            "note": ""
+          },
+          {
+            "product_id": 71491,
+            "product_name": "Discounts | Generic | Marketing Fee",
+            "color": null,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 2700205,
+            "price": -816.24,
+            "note": ""
+          },
+          {
+            "product_id": 71493,
+            "product_name": "Discounts | Generic | Amount Withheld",
+            "color": null,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 2728926,
+            "price": -411.38,
+            "note": ""
+          }
+        ],
+        "summary": {
+          "work_doing": {
+            "rcv": 11474.51,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "insurance_invoice": 11474.51,
+            "price": 11474.51
+          },
+          "work_not_doing": {
+            "rcv": 0,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "insurance_invoice": 0,
+            "price": 0
+          },
+          "supplineitems": {
+            "amt_requested": 0,
+            "amt_approved": 0,
+            "insurance_invoice": 0,
+            "price": 0
+          },
+          "upgrades": 0,
+          "discounts": -2043.86,
+          "changeorderlineitems": 0
+        }
+      }
+    },
+    {
+      "jobId": 3592028,
+      "estimateId": 651307,
+      "customerName": "LEWIS BRITT",
+      "address": "1404 La Fonda Dr, Seagoville, TX  75159",
+      "installDate": "2025-10-30T16:42:08.803196-05:00",
+      "repName": "Sean McCarty",
+      "region": "Dallas",
+      "amountWithheld": 303.55,
+      "contractPrice": 9194.13,
+      "balance": 303.55,
+      "insuranceRcv": 9194.13,
+      "lineItems": {
+        "work_doing": [
+          {
+            "product_id": 42144,
+            "product_name": "Custom | Custom | EA",
+            "color": "Weathered Wood",
+            "work_completed": false,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 2192952,
+            "note": "",
+            "rcv": 9194.13,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "price": 9194.13,
+            "insurance_invoice": 9194.13,
+            "unit": "EA",
+            "unit_price": 537.66842,
+            "quantity": 17.1,
+            "photos_count": 0,
+            "photos": [],
+            "is_integrated": false
+          }
+        ],
+        "work_not_doing": [],
+        "supplineitems": [],
+        "changeorderitems": [],
+        "upgrades": [],
+        "discounts": [
+          {
+            "product_id": 71493,
+            "product_name": "Discounts | Generic | Amount Withheld",
+            "color": null,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 2721818,
+            "price": -303.55,
+            "note": ""
+          }
+        ],
+        "summary": {
+          "work_doing": {
+            "rcv": 9194.13,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "insurance_invoice": 9194.13,
+            "price": 9194.13
+          },
+          "work_not_doing": {
+            "rcv": 0,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "insurance_invoice": 0,
+            "price": 0
+          },
+          "supplineitems": {
+            "amt_requested": 0,
+            "amt_approved": 0,
+            "insurance_invoice": 0,
+            "price": 0
+          },
+          "upgrades": 0,
+          "discounts": -303.55,
+          "changeorderlineitems": 0
+        }
+      }
+    },
+    {
+      "jobId": 851198,
+      "estimateId": 181670,
+      "customerName": "John Green",
+      "address": "437 Commonwealth Drive, Saginaw, TX  76179",
+      "installDate": "2022-11-17T17:51:00-06:00",
+      "repName": "Josh Sanchez",
+      "region": "Dallas",
+      "amountWithheld": 243.54,
+      "contractPrice": 14753.61,
+      "balance": 2061.61,
+      "insuranceRcv": 17734.15,
+      "lineItems": {
+        "work_doing": [
+          {
+            "product_id": 42083,
+            "product_name": "Shingles | Lifetime | GAF | Timberline HDZ",
+            "color": "Charcoal",
+            "work_completed": false,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 575530,
+            "note": "*Roof Replacement as per insurance scope of repairs\n* Tear Off 1 Layer of existing roofing shingles and felt\n* Replace any rotten wood at $75 per sheet\n* Install 1 Layer of new synthetic felt underlayment nailed to deck using approved fasteners.\n* Replace all Pipe Boots, Roof Vents and Re-flash as needed.\n* Install Ice/Water shield moisture barrier in all valleys. \n* Install Ridge Cap on Hips & Ridges\n* Remove & Replace 1.5\" Drip Edge Painted IF NEEDED\n* Tear off & haul away debris with onsite dumpster\n* Full & Thorough Cleanup\n* Limited Lifetime Warranty on materials from manufacturer",
+            "rcv": 14135.64,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "price": 14135.64,
+            "insurance_invoice": 14135.64,
+            "unit": "SQ",
+            "unit_price": 14135.64,
+            "quantity": 1,
+            "photos_count": 0,
+            "photos": [],
+            "is_integrated": false
+          },
+          {
+            "product_id": 70530,
+            "product_name": "Supplement | Generic | Approved Supplement",
+            "color": null,
+            "work_completed": false,
+            "trade_id": 24,
+            "trade_name": "Supplement",
+            "id": 632424,
+            "note": "",
+            "rcv": 3598.51,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "price": 3598.51,
+            "insurance_invoice": 3598.51,
+            "unit": "EA",
+            "unit_price": 3598.51,
+            "quantity": 1,
+            "photos_count": 0,
+            "photos": [],
+            "is_integrated": false
+          }
+        ],
+        "work_not_doing": [],
+        "supplineitems": [],
+        "changeorderitems": [],
+        "upgrades": [],
+        "discounts": [
+          {
+            "product_id": 71491,
+            "product_name": "Discounts | Generic | Marketing Fee",
+            "color": null,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 575531,
+            "price": -2737,
+            "note": ""
+          },
+          {
+            "product_id": 71493,
+            "product_name": "Discounts | Generic | Amount Withheld",
+            "color": null,
+            "trade_id": 11,
+            "trade_name": "ROOFING",
+            "id": 632438,
+            "price": -243.54,
+            "note": ""
+          }
+        ],
+        "summary": {
+          "work_doing": {
+            "rcv": 17734.15,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "insurance_invoice": 17734.15,
+            "price": 17734.15
+          },
+          "work_not_doing": {
+            "rcv": 0,
+            "recoverable_depreciation": 0,
+            "non_recoverable_depreciation": 0,
+            "insurance_invoice": 0,
+            "price": 0
+          },
+          "supplineitems": {
+            "amt_requested": 0,
+            "amt_approved": 0,
+            "insurance_invoice": 0,
+            "price": 0
+          },
+          "upgrades": 0,
+          "discounts": -2980.54,
+          "changeorderlineitems": 0
+        }
+      }
+    }
+  ]
+}

@@ -206,4 +206,51 @@ export const GeneratedDataSchema = z.object({
 });
 export type GeneratedData = z.infer<typeof GeneratedDataSchema>;
 
+/* =============================================================================
+ * Write-offs — one row per AR job with an Amount Withheld discount
+ * (Rooflink product_id 71493). Produced by scripts/fetch-write-offs.ts.
+ * =========================================================================== */
+
+const WriteOffLineItemsSchema = z
+  .object({
+    work_doing: z.array(z.unknown()).optional(),
+    work_not_doing: z.array(z.unknown()).optional(),
+    supplineitems: z.array(z.unknown()).optional(),
+    changeorderitems: z.array(z.unknown()).optional(),
+    upgrades: z.array(z.unknown()).optional(),
+    discounts: z.array(z.unknown()).optional(),
+    summary: z.unknown().optional(),
+  })
+  .passthrough();
+
+export const WriteOffRecordSchema = z.object({
+  jobId: z.number(),
+  estimateId: z.number(),
+  customerName: z.string(),
+  address: z.string(),
+  installDate: z.string().nullable(),
+  repName: z.string().nullable(),
+  region: z.string().nullable(),
+  amountWithheld: z.number(),
+  contractPrice: z.number(),
+  balance: z.number(),
+  insuranceRcv: z.number().nullable(),
+  lineItems: WriteOffLineItemsSchema,
+});
+export type WriteOffRecord = z.infer<typeof WriteOffRecordSchema>;
+
+export const WriteOffsFileSchema = z.object({
+  generatedAt: z.string(),
+  scope: z.enum(['ar-working-set', 'completed-jobs', 'all-estimates']),
+  totals: z.object({
+    candidatesFetched: z.number(),
+    candidatesWithWriteOffs: z.number(),
+    totalAmountWithheld: z.number(),
+    fetchErrors: z.number(),
+    skipped404: z.number(),
+  }),
+  records: z.array(WriteOffRecordSchema),
+});
+export type WriteOffsFile = z.infer<typeof WriteOffsFileSchema>;
+
 export * from './audit';

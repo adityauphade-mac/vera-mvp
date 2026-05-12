@@ -12,6 +12,7 @@ import {
   Home,
   ListChecks,
   LogOut,
+  Receipt,
   Trophy,
 } from 'lucide-react';
 import { signOutAction } from '../../_actions/auth';
@@ -20,6 +21,7 @@ const NAV = [
   { href: '/dashboard', label: 'Today', icon: Home, exact: true },
   { href: '/dashboard/aging', label: 'Aging & anomalies', icon: AlertTriangle },
   { href: '/dashboard/milestones', label: 'Milestones', icon: ListChecks },
+  { href: '/dashboard/write-offs', label: 'Write-offs', icon: Receipt },
   { href: '/dashboard/follow-ups', label: 'Follow-ups', icon: GaugeCircle },
   { href: '/dashboard/rep-leaderboard', label: 'Rep leaderboard', icon: Trophy },
   { href: '/dashboard/reconciliation', label: 'Reconciliation', icon: ClipboardCheck },
