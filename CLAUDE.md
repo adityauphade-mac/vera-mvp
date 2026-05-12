@@ -140,6 +140,52 @@ data/                      gitignored — source + generated artifacts
 
 ---
 
+## Loading states: skeleton-first
+
+Client components that fetch from the API on mount MUST render a skeleton — never default/empty state — until the first server response lands. Rendering "Not scheduled" or empty form fields for the 200-2000 ms before the fetch resolves produces a visible state jump when real data swaps in. Operators read that flash as a bug, even when it's "just" the loading window.
+
+### The rule
+
+If a client component issues a `fetch` from a `useEffect` on mount and the page's UI depends on the response, you need a separate `loaded: boolean` (or equivalent) flag that flips true exactly once when the first response settles. Render a `*Skeleton` variant of the layout until that flag flips. Subsequent refetches (filter changes, manual refresh) keep the previous data on-screen with a refresh-spinner affordance — no flash.
+
+### What the skeleton looks like
+
+- Same Card chrome, same vertical rhythm, same column widths as the real component. The skeleton's job is "show the structure of what's about to load" so the page doesn't shift when real data arrives.
+- Composed from `<Skeleton>` and `<SkeletonText>` in `@vera/ui`. `<SkeletonText width="w-32" />` for single-line text shimmers; raw `<Skeleton className="..." />` for icons / pills / buttons / non-text shapes.
+- Page-local: each component defines its own `*Skeleton` function colocated with the real one (`ReportRowSkeleton` next to `ReportRow`, `BackfillCardSkeleton` next to `BackfillCard`, etc.). The shared primitives keep the visual rhythm consistent without coercing every page into one shape.
+
+### Code shape
+
+```tsx
+const [loaded, setLoaded] = useState(false);
+const [data, setData] = useState<Server | null>(null);
+
+useEffect(() => {
+  (async () => {
+    try {
+      const res = await fetch('/api/...');
+      if (res.ok) setData(await res.json());
+    } finally {
+      setLoaded(true); // flip exactly once, even if the fetch failed,
+                      // so the page doesn't sit on skeletons forever
+    }
+  })();
+}, []);
+
+return loaded ? <RealCard data={data} /> : <RealCardSkeleton />;
+```
+
+### When SSR is a better answer
+
+If the page is on a server component whose route already touches the DB, SSR the data and pass it as a prop instead — no client fetch, no skeleton needed. We prefer skeleton-first when the client component is reused across multiple parent contexts, when it polls, or when the fetch is auth-dependent in a way that's awkward to thread from the server. Default to skeleton-first; reach for SSR when the wiring is naturally there.
+
+### Out of scope
+
+- One-shot fetches triggered by user action (e.g. "Send now") — those use button-level pending state, not skeleton rows.
+- Refetches that reuse already-rendered data (filter changes on `/dashboard/audit-logs`) — show a spinner on the refresh button, not a skeleton.
+
+---
+
 ## Components — shadcn + RHF + Zod pattern
 
 All form-bearing components follow this pattern:

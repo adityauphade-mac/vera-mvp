@@ -17,6 +17,8 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Skeleton,
+  SkeletonText,
   Switch,
   TimePicker,
   toast,
@@ -177,6 +179,11 @@ function isDirty(form: DraftForm, server: BackfillSchedule): boolean {
 
 export function DataSyncSection() {
   const [timezone, setTimezone] = useState('America/Chicago');
+  // `false` until the first /api/backfills response lands. Drives the
+  // skeleton rows below — without this we'd briefly render every source
+  // card as "Not scheduled" before the real server state swaps in.
+  // See CLAUDE.md "Loading states: skeleton-first" for the convention.
+  const [schedulesLoaded, setSchedulesLoaded] = useState(false);
   const [schedules, setSchedules] = useState<Record<Source, BackfillSchedule | null>>({
     rooflink_jobs: null,
     rooflink_lineitems: null,
@@ -277,6 +284,12 @@ export function DataSyncSection() {
       });
     } catch {
       /* network blip — leave UI on previous values */
+    } finally {
+      // Flip schedulesLoaded once — drives the skeleton-off transition.
+      // If the fetch failed entirely, we still flip so the page doesn't
+      // sit on skeletons forever; the user sees state A everywhere and
+      // can save fresh.
+      setSchedulesLoaded(true);
     }
   }, []);
 
@@ -593,27 +606,31 @@ export function DataSyncSection() {
         <p className="text-text-muted text-xs">2 sources from Rooflink</p>
       </div>
 
-      {(['rooflink_jobs', 'rooflink_lineitems'] as Source[]).map((source) => (
-        <BackfillCard
-          key={source}
-          source={source}
-          schedule={schedules[source]}
-          activeRun={activeRuns[source]}
-          lastCompletedRun={lastPromoted[source]}
-          mostRecentRun={mostRecentRun[source]}
-          form={forms[source]}
-          timezone={timezone}
-          pendingAction={pendingAction[source]}
-          onFormChange={(patch) =>
-            setForms((f) => ({ ...f, [source]: { ...f[source], ...patch } }))
-          }
-          onSave={() => saveSchedule(source)}
-          onToggleEnabled={(v) => toggleEnabled(source, v)}
-          onRemove={() => removeSchedule(source)}
-          onRunNow={() => runNow(source)}
-          onCancel={() => cancelRun(source)}
-        />
-      ))}
+      {(['rooflink_jobs', 'rooflink_lineitems'] as Source[]).map((source) =>
+        schedulesLoaded ? (
+          <BackfillCard
+            key={source}
+            source={source}
+            schedule={schedules[source]}
+            activeRun={activeRuns[source]}
+            lastCompletedRun={lastPromoted[source]}
+            mostRecentRun={mostRecentRun[source]}
+            form={forms[source]}
+            timezone={timezone}
+            pendingAction={pendingAction[source]}
+            onFormChange={(patch) =>
+              setForms((f) => ({ ...f, [source]: { ...f[source], ...patch } }))
+            }
+            onSave={() => saveSchedule(source)}
+            onToggleEnabled={(v) => toggleEnabled(source, v)}
+            onRemove={() => removeSchedule(source)}
+            onRunNow={() => runNow(source)}
+            onCancel={() => cancelRun(source)}
+          />
+        ) : (
+          <BackfillCardSkeleton key={source} source={source} />
+        ),
+      )}
     </section>
   );
 }
@@ -950,5 +967,62 @@ function Field({
       </label>
       {children}
     </div>
+  );
+}
+
+/**
+ * Skeleton placeholder for a backfill source card while the first
+ * /api/backfills response is in flight. Same Card chrome + spacing as
+ * the real BackfillCard so layout doesn't shift when real data lands.
+ *
+ * Per CLAUDE.md "Loading states: skeleton-first" — never render the
+ * card's true state (schedule pill, "Not scheduled" copy, form
+ * defaults) against unknown server state. Shimmer until we know.
+ */
+function BackfillCardSkeleton({ source }: { source: Source }) {
+  const meta = SOURCE_META[source];
+  return (
+    <Card>
+      <div className="space-y-5">
+        {/* Title row */}
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="bg-bg-base flex h-9 w-9 shrink-0 items-center justify-center rounded-xl">
+              <Skeleton className="h-4 w-4 rounded" />
+            </div>
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="font-display text-lg tracking-tight sm:text-xl">
+                  {meta.title}
+                </h3>
+                <Skeleton className="h-4 w-20 rounded-full" />
+              </div>
+              <p className="text-text-secondary text-sm leading-relaxed">
+                {meta.description}
+              </p>
+              <SkeletonText width="w-56" />
+            </div>
+          </div>
+          <Skeleton className="h-5 w-9 rounded-full" />
+        </div>
+
+        {/* Config row — 3 form fields */}
+        <div className="border-border bg-bg-base/40 grid grid-cols-1 gap-4 rounded-2xl border p-4 md:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div className="space-y-1.5" key={i}>
+              <SkeletonText width="w-16" className="h-2" />
+              <Skeleton className="h-10 w-full rounded-xl" />
+            </div>
+          ))}
+        </div>
+
+        {/* Action row */}
+        <div className="flex items-center justify-end gap-2">
+          <Skeleton className="h-8 w-24 rounded-full" />
+          <Skeleton className="h-10 w-28 rounded-full" />
+          <Skeleton className="h-10 w-28 rounded-full" />
+        </div>
+      </div>
+    </Card>
   );
 }

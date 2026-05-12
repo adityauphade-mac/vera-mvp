@@ -16,6 +16,8 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Skeleton,
+  SkeletonText,
   Switch,
   Tab,
   Tabs,
@@ -278,6 +280,11 @@ export function SchedulerView() {
   const [state, setState] = useState<SchedulerState>(DEFAULT_STATE);
   const [hydrated, setHydrated] = useState(false);
   const [timezone, setTimezone] = useState(SSR_FALLBACK_TIMEZONE);
+  // `false` until the first /api/schedules response lands. Drives the
+  // skeleton rows below — without this we'd briefly render every row as
+  // "Not scheduled" before the real server state swaps in.
+  // See CLAUDE.md "Loading states: skeleton-first" for the convention.
+  const [serverRowsLoaded, setServerRowsLoaded] = useState(false);
   // Server-known schedules. `null` means "no row" — that's state A for
   // that cadence. The form-vs-server diff drives every visible affordance.
   const [serverRows, setServerRows] = useState<Record<ReportId, ServerSchedule | null>>({
@@ -335,6 +342,12 @@ export function SchedulerView() {
         });
       } catch {
         /* network blip — leave the form on localStorage values */
+      } finally {
+        // Flip serverRowsLoaded once — drives the skeleton-off transition
+        // for every cadence row. If the fetch failed entirely, we still
+        // flip so the page doesn't sit on skeletons forever; the user
+        // sees state A everywhere and can save fresh.
+        if (!cancelled) setServerRowsLoaded(true);
       }
     })();
     return () => {
@@ -598,22 +611,26 @@ export function SchedulerView() {
 
         <TabsContent value="reports" className="space-y-4 pt-6">
           <p className="text-text-muted text-xs">3 cadences available</p>
-          {(['daily', 'weekly', 'monthly'] as ReportId[]).map((id) => (
-            <ReportRow
-              key={id}
-              report={state.reports[id]}
-              serverRow={serverRows[id]}
-              outcome={outcomes[id]}
-              scheduleOutcome={scheduleOutcomes[id]}
-              hydrated={hydrated}
-              timezone={timezone}
-              onChange={(patch) => updateReport(id, patch)}
-              onSendNow={() => sendNow(id)}
-              onSave={() => saveSchedule(id)}
-              onToggleEnabled={(v) => setEnabled(id, v)}
-              onRemove={() => removeSchedule(id)}
-            />
-          ))}
+          {(['daily', 'weekly', 'monthly'] as ReportId[]).map((id) =>
+            serverRowsLoaded ? (
+              <ReportRow
+                key={id}
+                report={state.reports[id]}
+                serverRow={serverRows[id]}
+                outcome={outcomes[id]}
+                scheduleOutcome={scheduleOutcomes[id]}
+                hydrated={hydrated}
+                timezone={timezone}
+                onChange={(patch) => updateReport(id, patch)}
+                onSendNow={() => sendNow(id)}
+                onSave={() => saveSchedule(id)}
+                onToggleEnabled={(v) => setEnabled(id, v)}
+                onRemove={() => removeSchedule(id)}
+              />
+            ) : (
+              <ReportRowSkeleton key={id} cadence={id} />
+            ),
+          )}
         </TabsContent>
 
         <TabsContent value="data-sync" className="space-y-4 pt-6">
@@ -1006,4 +1023,69 @@ function formatTime12h(hhmm: string): string {
   const meridiem = h24 >= 12 ? 'PM' : 'AM';
   const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
   return `${h12}:${String(m).padStart(2, '0')} ${meridiem}`;
+}
+
+/**
+ * Skeleton placeholder for a single cadence row, rendered while the
+ * first /api/schedules response is in flight. Same Card chrome + same
+ * vertical rhythm as the real ReportRow so the layout doesn't shift
+ * when real data lands and the skeleton swaps out.
+ *
+ * Per CLAUDE.md "Loading states: skeleton-first" — we never render the
+ * row's true content (status pill, recipient field, switch) against
+ * default values during the loading window. The user sees shimmering
+ * placeholders until the server tells us what the actual state is.
+ */
+function ReportRowSkeleton({ cadence }: { cadence: ReportId }) {
+  const meta = REPORT_META[cadence];
+  return (
+    <Card>
+      <div className="space-y-5">
+        {/* Title row: icon + title + description, no real state yet. */}
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="bg-bg-base flex h-9 w-9 shrink-0 items-center justify-center rounded-xl">
+              <Skeleton className="h-4 w-4 rounded" />
+            </div>
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="font-display text-lg tracking-tight sm:text-xl">
+                  {meta.title}
+                </h3>
+                <Skeleton className="h-4 w-20 rounded-full" />
+              </div>
+              <p className="text-text-secondary text-sm leading-relaxed">
+                {meta.description}
+              </p>
+              <SkeletonText width="w-64" />
+            </div>
+          </div>
+          <Skeleton className="h-5 w-9 rounded-full" />
+        </div>
+
+        {/* Config row — same grid as the real row, filled with shimmer. */}
+        <div className="border-border bg-bg-base/40 grid grid-cols-1 gap-4 rounded-2xl border p-4 md:grid-cols-3">
+          <div className="space-y-1.5">
+            <SkeletonText width="w-16" className="h-2" />
+            <Skeleton className="h-10 w-full rounded-xl" />
+          </div>
+          <div className="space-y-1.5">
+            <SkeletonText width="w-20" className="h-2" />
+            <Skeleton className="h-10 w-full rounded-xl" />
+          </div>
+          <div className="space-y-1.5">
+            <SkeletonText width="w-16" className="h-2" />
+            <Skeleton className="h-10 w-full rounded-xl" />
+          </div>
+        </div>
+
+        {/* Action row — three skeleton buttons. */}
+        <div className="flex items-center justify-end gap-2">
+          <Skeleton className="h-8 w-24 rounded-full" />
+          <Skeleton className="h-10 w-32 rounded-full" />
+          <Skeleton className="h-10 w-28 rounded-full" />
+        </div>
+      </div>
+    </Card>
+  );
 }

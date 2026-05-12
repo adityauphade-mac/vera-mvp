@@ -25,6 +25,7 @@ import {
   SelectValue,
   Sheet,
   Skeleton,
+  SkeletonText,
   Table,
   TableCell,
   TableHead,
@@ -475,19 +476,19 @@ function SkeletonRows() {
       {Array.from({ length: 6 }).map((_, i) => (
         <TableRow key={i}>
           <TableCell className="whitespace-nowrap">
-            <Skeleton className="h-3 w-20" />
+            <SkeletonText width="w-20" />
           </TableCell>
           <TableCell className="whitespace-nowrap">
-            <Skeleton className="h-3 w-36" />
+            <SkeletonText width="w-36" />
           </TableCell>
           <TableCell className="whitespace-nowrap">
             <Skeleton className="h-4 w-16 rounded-full" />
           </TableCell>
           <TableCell className="whitespace-nowrap">
-            <Skeleton className="h-3 w-24" />
+            <SkeletonText width="w-24" />
           </TableCell>
           <TableCell>
-            <Skeleton className="h-3 w-64" />
+            <SkeletonText width="w-64" />
           </TableCell>
           <TableCell />
         </TableRow>
