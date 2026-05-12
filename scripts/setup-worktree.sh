@@ -90,26 +90,49 @@ sync_env_local() {
     echo "  copied .env.local from canonical (verbatim)"
     return
   fi
-  # Both files exist — compare key sets.
-  local src_keys dst_keys missing
+  # Both files exist — compare key sets in both directions.
+  #
+  # Forward (canonical → worktree): missing keys in worktree mean features
+  # break silently here. Warn loudly and print a merge recipe.
+  #
+  # Reverse (worktree → canonical): keys present here that canonical lacks
+  # mean someone added a secret in a worktree without back-propagating, so
+  # the NEXT worktree spawned won't inherit it. Warn so the caller copies
+  # it back to canonical before more worktrees are spawned.
+  local src_keys dst_keys missing extra
   src_keys=$(grep -E "^[A-Z_][A-Z0-9_]*=" "$src" | cut -d= -f1 | sort -u)
   dst_keys=$(grep -E "^[A-Z_][A-Z0-9_]*=" "$dst" | cut -d= -f1 | sort -u)
   missing=$(comm -23 <(echo "$src_keys") <(echo "$dst_keys"))
-  if [ -z "$missing" ]; then
-    echo "  .env.local exists and has every canonical key ✓"
+  extra=$(comm -13 <(echo "$src_keys") <(echo "$dst_keys"))
+
+  if [ -z "$missing" ] && [ -z "$extra" ]; then
+    echo "  .env.local exists and is in sync with canonical ✓"
     return
   fi
-  echo ""
-  echo "  ⚠ .env.local exists but is MISSING $(echo "$missing" | wc -l | tr -d ' ') canonical key(s):"
-  echo "$missing" | sed 's/^/      - /'
-  echo ""
-  echo "  To merge canonical's secrets into the existing .env.local without"
-  echo "  losing your local DATABASE_URL override, run:"
-  echo "      LOCAL_DB=\$(grep '^DATABASE_URL=' $dst)"
-  echo "      cp $src $dst.new"
-  echo "      sed -i.bak \"s|^DATABASE_URL=.*|\$LOCAL_DB|\" $dst.new"
-  echo "      mv $dst.new $dst"
-  echo ""
+
+  if [ -n "$missing" ]; then
+    echo ""
+    echo "  ⚠ .env.local is MISSING $(echo "$missing" | wc -l | tr -d ' ') canonical key(s):"
+    echo "$missing" | sed 's/^/      - /'
+    echo ""
+    echo "  To merge canonical's secrets into the existing .env.local without"
+    echo "  losing your local DATABASE_URL override, run:"
+    echo "      LOCAL_DB=\$(grep '^DATABASE_URL=' $dst)"
+    echo "      cp $src $dst.new"
+    echo "      sed -i.bak \"s|^DATABASE_URL=.*|\$LOCAL_DB|\" $dst.new"
+    echo "      mv $dst.new $dst"
+    echo ""
+  fi
+
+  if [ -n "$extra" ]; then
+    echo ""
+    echo "  ⚠ .env.local has $(echo "$extra" | wc -l | tr -d ' ') key(s) NOT in canonical:"
+    echo "$extra" | sed 's/^/      - /'
+    echo ""
+    echo "  Back-propagate so future worktrees inherit them:"
+    echo "      grep -E '^($(echo "$extra" | paste -sd'|' -))=' $dst >> $src"
+    echo ""
+  fi
 }
 
 echo "Bootstrapping worktree:"
