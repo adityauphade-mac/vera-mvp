@@ -42,6 +42,7 @@ import {
   TableWithPaginationDemo,
   FilterMenuDemo,
   TabsDemo,
+  ToastModalDemo,
   InfiniteScrollDemo,
 } from './_demo';
 import { PageNav } from '../_components/PageNav';
@@ -59,6 +60,7 @@ const SECTIONS = [
   { id: 'pagination', label: 'Pagination' },
   { id: 'filters', label: 'Filter menu' },
   { id: 'tabs', label: 'Tabs' },
+  { id: 'toasts-modals', label: 'Toasts & modals' },
   { id: 'infinite-scroll', label: 'Infinite scroll' },
   { id: 'empty', label: 'Empty states' },
   { id: 'tooltips', label: 'Tooltips' },
@@ -622,13 +624,62 @@ export default function DesignSystemPreview() {
           </Section>
 
           {/* TABS */}
-          <Section id="tabs" title="Tabs" subtitle="Two-state header used on Follow-ups">
+          <Section
+            id="tabs"
+            title="Tabs"
+            subtitle="Shared underline-style tabs · used on Scheduler + Follow-ups"
+          >
             <TabsDemo />
             <p className="text-text-muted mt-2 text-xs">
-              The active tab gets a <code>border-accent</code> underline and primary text
-              color; idle tabs are secondary. Pattern is local to view files (not yet a
-              shared component).
+              Use <code>Tabs / TabsList / Tab / TabsContent</code> from{' '}
+              <code>@vera/ui</code>. Controlled (pass <code>value</code> +{' '}
+              <code>onValueChange</code> — e.g. wired to a <code>useQueryState</code>) or
+              uncontrolled (just <code>defaultValue</code>). Underline is{' '}
+              <code>border-accent</code> with primary text on the active tab; idle tabs are
+              secondary. ARIA roles wired correctly — keyboard navigation works.
             </p>
+          </Section>
+
+          {/* TOASTS + MODALS */}
+          <Section
+            id="toasts-modals"
+            title="Toasts & confirm modals"
+            subtitle="Transient feedback + replacement for window.confirm()"
+          >
+            <ToastModalDemo />
+            <p className="text-text-muted mt-2 text-xs">
+              <code>toast()</code> and <code>useConfirm()</code> from{' '}
+              <code>@vera/ui</code>. Sonner-backed, themed in{' '}
+              <code>globals.css</code> under <code>[data-sonner-toaster]</code> with Vera
+              tokens. Five toast states share the modal chrome but use{' '}
+              <strong>distinct silhouettes</strong> (filled circle / octagon / triangle /
+              rounded square / arc) so users tell info vs error apart by shape, not just
+              color. Info is the one cool tone in the palette — slate blue{' '}
+              <code>--color-info</code>.
+            </p>
+            <p className="text-text-muted mt-3 text-xs">
+              Two modal flavors share visual chrome (centered, bg-card, rounded card
+              radius, p-7, shadow) but differ in layout:
+            </p>
+            <ul className="text-text-muted mt-1 list-none space-y-2 text-xs leading-relaxed">
+              <li>
+                <strong className="text-text-primary">
+                  &lt;Modal&gt; — content surface, no icon.
+                </strong>{' '}
+                Big <code>font-display</code> title, body owns the layout. Use for chat
+                (Ask Vera), info dialogs, custom forms. See <em>Modals &amp; sheets</em>{' '}
+                below for the canonical example.
+              </li>
+              <li>
+                <strong className="text-text-primary">
+                  &lt;ConfirmDialog&gt; — action confirmation, with icon.
+                </strong>{' '}
+                Icon block + title rendered in <strong>uppercase eyebrow typography</strong>{' '}
+                (imperative, not a question — &quot;Cancel this run&quot;, not &quot;Cancel
+                this run?&quot;) + description as the body, left-aligned. Use via{' '}
+                <code>useConfirm()</code>.
+              </li>
+            </ul>
           </Section>
 
           {/* INFINITE SCROLL */}

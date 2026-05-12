@@ -12,20 +12,23 @@ import {
   FilterMenu,
   type FilterGroup,
   MetricTile,
+  Tab,
+  Tabs,
+  TabsList,
   VeraQuote,
 } from '@vera/ui';
 import { formatUSD } from '@vera/utils';
 import type { ARJob } from '@vera/types';
 import { FollowUpsList } from './FollowUpsList';
 
-type Tab = 'follow-ups' | 'queue';
+type TabValue = 'follow-ups' | 'queue';
 
 const PAGE_CHUNK = 20;
 
 export function FollowUpsView({ jobs }: { jobs: ARJob[] }) {
   const [tab, setTab] = useQueryState(
     'tab',
-    parseAsStringEnum<Tab>(['follow-ups', 'queue']).withDefault('follow-ups'),
+    parseAsStringEnum<TabValue>(['follow-ups', 'queue']).withDefault('follow-ups'),
   );
   const [repFilter, setRepFilter] = useQueryState(
     'reps',
@@ -173,20 +176,27 @@ export function FollowUpsView({ jobs }: { jobs: ARJob[] }) {
         />
       </section>
 
-      <div className="border-border flex flex-wrap items-end justify-between gap-3 border-b vera-rise-delay-2">
-        <div className="flex flex-wrap gap-1">
-          <TabButton active={tab === 'follow-ups'} onClick={() => setTab('follow-ups')}>
-            <span className="whitespace-nowrap">Rep follow-ups · {hot.length}</span>
-          </TabButton>
-          <TabButton active={tab === 'queue'} onClick={() => setTab('queue')}>
-            <span className="whitespace-nowrap">
-              <span className="hidden sm:inline">Executive review queue</span>
-              <span className="sm:hidden">Exec queue</span>
-              {' · '}
-              {critical.length}
-            </span>
-          </TabButton>
-        </div>
+      <div className="flex flex-wrap items-end justify-between gap-3 vera-rise-delay-2">
+        <Tabs
+          value={tab}
+          onValueChange={(v) => setTab(v as TabValue)}
+          name="follow-ups"
+          className="flex-1"
+        >
+          <TabsList aria-label="Follow-ups views">
+            <Tab value="follow-ups">
+              <span className="whitespace-nowrap">Rep follow-ups · {hot.length}</span>
+            </Tab>
+            <Tab value="queue">
+              <span className="whitespace-nowrap">
+                <span className="hidden sm:inline">Executive review queue</span>
+                <span className="sm:hidden">Exec queue</span>
+                {' · '}
+                {critical.length}
+              </span>
+            </Tab>
+          </TabsList>
+        </Tabs>
         <div className="pb-2">
           <FilterMenu
             groups={filterGroups}
@@ -225,26 +235,3 @@ export function FollowUpsView({ jobs }: { jobs: ARJob[] }) {
   );
 }
 
-function TabButton({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={
-        active
-          ? 'border-accent text-text-primary -mb-px border-b-2 px-5 py-3 text-sm font-medium'
-          : 'text-text-secondary hover:text-text-primary border-b-2 border-transparent px-5 py-3 text-sm transition-colors'
-      }
-    >
-      {children}
-    </button>
-  );
-}

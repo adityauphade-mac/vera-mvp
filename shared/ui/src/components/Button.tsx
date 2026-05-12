@@ -13,6 +13,8 @@ const buttonVariants = cva(
           'border border-border bg-bg-card text-text-primary hover:border-accent/40 hover:bg-bg-base shadow-[0_1px_2px_0_rgba(31,27,22,0.04)]',
         ghost: 'text-text-secondary hover:bg-bg-card hover:text-text-primary',
         link: 'text-accent underline-offset-4 hover:underline px-0 shadow-none',
+        destructive:
+          'bg-heat-critical text-white shadow-[0_2px_8px_-2px_rgba(176,46,46,0.4)] hover:bg-heat-critical/90 hover:shadow-[0_4px_14px_-2px_rgba(176,46,46,0.5)]',
       },
       size: {
         sm: 'h-8 px-4 text-xs',

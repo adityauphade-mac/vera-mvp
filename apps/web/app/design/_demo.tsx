@@ -1,8 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { X } from 'lucide-react';
 import {
   AgingChip,
   Button,
@@ -11,7 +9,9 @@ import {
   type FilterGroup,
   HeatMeter,
   MissingStepTag,
+  Modal,
   Sheet,
+  Tab,
   Table,
   TableCell,
   TableHead,
@@ -20,6 +20,11 @@ import {
   TableRow,
   TableShell,
   TableToolbar,
+  Tabs,
+  TabsContent,
+  TabsList,
+  toast,
+  useConfirm,
 } from '@vera/ui';
 import { formatUSD } from '@vera/utils';
 
@@ -64,7 +69,7 @@ export function DesignDemo() {
         </div>
       </Sheet>
 
-      <CenterModal open={modalOpen} onClose={() => setModalOpen(false)}>
+      <Modal open={modalOpen} onOpenChange={setModalOpen}>
         <div className="space-y-3">
           <p className="text-text-muted text-[0.65rem] font-semibold tracking-[0.18em] uppercase">
             Modal example
@@ -73,8 +78,9 @@ export function DesignDemo() {
             Vera answers in the middle.
           </p>
           <p className="text-text-secondary text-sm">
-            The Ask-Vera chat now lives in a centered modal — it animates in with{' '}
-            <code>vera-modal-in</code> and traps focus while open.
+            Plain <code>&lt;Modal&gt;</code> from <code>@vera/ui</code> — no icon, no
+            built-in buttons, your layout owns the body. For yes/no
+            confirmations use <code>&lt;ConfirmDialog&gt;</code> below.
           </p>
         </div>
         <div className="mt-6 flex justify-end gap-2">
@@ -85,61 +91,8 @@ export function DesignDemo() {
             Got it
           </Button>
         </div>
-      </CenterModal>
+      </Modal>
     </div>
-  );
-}
-
-function CenterModal({
-  open,
-  onClose,
-  children,
-}: {
-  open: boolean;
-  onClose: () => void;
-  children: React.ReactNode;
-}) {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    document.body.style.overflow = 'hidden';
-    return () => {
-      window.removeEventListener('keydown', onKey);
-      document.body.style.overflow = '';
-    };
-  }, [open, onClose]);
-
-  if (!open || !mounted) return null;
-
-  return createPortal(
-    <div
-      className="vera-backdrop-in fixed inset-0 z-[120] flex items-center justify-center bg-black/40 backdrop-blur-sm"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-    >
-      <div
-        className="vera-modal-in bg-bg-card border-border relative w-full max-w-md rounded-[var(--radius-card)] border p-7 shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <button
-          type="button"
-          aria-label="Close"
-          onClick={onClose}
-          className="text-text-muted hover:text-text-primary absolute top-4 right-4 rounded-full p-1.5 transition-colors"
-        >
-          <X className="h-4 w-4" />
-        </button>
-        {children}
-      </div>
-    </div>,
-    document.body,
   );
 }
 
@@ -355,49 +308,140 @@ export function FilterMenuDemo() {
 // =====================================================================
 
 export function TabsDemo() {
-  const [tab, setTab] = useState<'follow-ups' | 'queue'>('follow-ups');
   return (
-    <div className="space-y-4">
-      <div className="border-border flex items-end gap-1 border-b">
-        <TabButton active={tab === 'follow-ups'} onClick={() => setTab('follow-ups')}>
-          Rep follow-ups · 28
-        </TabButton>
-        <TabButton active={tab === 'queue'} onClick={() => setTab('queue')}>
-          Executive review queue · 36
-        </TabButton>
-      </div>
-      <Card>
-        <p className="text-text-secondary text-sm">
-          {tab === 'follow-ups'
-            ? "Hot-band jobs Vera will draft for today (51–75)."
-            : 'Critical-band jobs that need executive eyes (76+).'}
-        </p>
-      </Card>
-    </div>
+    <Tabs defaultValue="follow-ups" name="design-tabs-demo" className="space-y-4">
+      <TabsList aria-label="Demo tabs">
+        <Tab value="follow-ups">Rep follow-ups · 28</Tab>
+        <Tab value="queue">Executive review queue · 36</Tab>
+      </TabsList>
+      <TabsContent value="follow-ups">
+        <Card>
+          <p className="text-text-secondary text-sm">
+            Hot-band jobs Vera will draft for today (51–75).
+          </p>
+        </Card>
+      </TabsContent>
+      <TabsContent value="queue">
+        <Card>
+          <p className="text-text-secondary text-sm">
+            Critical-band jobs that need executive eyes (76+).
+          </p>
+        </Card>
+      </TabsContent>
+    </Tabs>
   );
 }
 
-function TabButton({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
+// =====================================================================
+// TOASTS + CONFIRM MODAL — interactive demo
+// =====================================================================
+
+export function ToastModalDemo() {
+  const confirm = useConfirm();
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={
-        active
-          ? 'border-accent text-text-primary -mb-px border-b-2 px-5 py-3 text-sm font-medium'
-          : 'text-text-secondary hover:text-text-primary border-b-2 border-transparent px-5 py-3 text-sm transition-colors'
-      }
-    >
-      {children}
-    </button>
+    <div className="space-y-3">
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() =>
+            toast.success('Schedule saved', {
+              description: 'Next run tomorrow at 03:00 CT.',
+            })
+          }
+        >
+          toast.success
+        </Button>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() =>
+            toast.error("Couldn't reach Rooflink", {
+              description: 'WAF timed out after 30 seconds. Retrying in 5s.',
+            })
+          }
+        >
+          toast.error
+        </Button>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() =>
+            toast.info('Vera is thinking', {
+              description: 'Pulling estimate context for the current view…',
+            })
+          }
+        >
+          toast.info
+        </Button>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() =>
+            toast.warning('Rooflink throttling detected', {
+              description:
+                'Requests are taking 10+ seconds. The sync will continue but progress will be slower than usual.',
+            })
+          }
+        >
+          toast.warning
+        </Button>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => {
+            const id = `demo-loading-${Date.now()}`;
+            toast.loading('Rooflink jobs · full sync', {
+              id,
+              description: '1,234 / 8,440 rows · 14.6%',
+              duration: Infinity,
+            });
+            window.setTimeout(() => {
+              toast.success('Rooflink jobs sync complete', {
+                id,
+                description: '8,440 records updated',
+                duration: 5000,
+              });
+            }, 3500);
+          }}
+        >
+          toast.loading → success
+        </Button>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={async () => {
+            const ok = await confirm({
+              title: 'Cancel this run',
+              description: '171 rows already fetched will be deleted.',
+              confirmLabel: 'Cancel run',
+              cancelLabel: 'Keep running',
+              destructive: true,
+            });
+            if (ok)
+              toast.success('Run canceled', {
+                description: 'Partial data removed.',
+              });
+          }}
+        >
+          useConfirm (destructive)
+        </Button>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={async () => {
+            const ok = await confirm({
+              title: 'Save changes',
+              description: 'This will overwrite the existing draft.',
+              confirmLabel: 'Save',
+            });
+            if (ok) toast.success('Saved');
+          }}
+        >
+          useConfirm (default)
+        </Button>
+      </div>
+    </div>
   );
 }
 
