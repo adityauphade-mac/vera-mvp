@@ -11,6 +11,9 @@ import {
   EMAIL_COLORS,
 } from '@/lib/email-layout';
 import { recordAudit } from '@/lib/audit';
+import { invalidateDataSnapshot } from '@/lib/data';
+import { invalidateWriteOffsSnapshot } from '@/lib/write-offs-data';
+import { sanitizeBackfillError } from './error-display';
 
 /**
  * Core tick logic. Pure-ish wrapper that:
@@ -93,45 +96,60 @@ export async function runTick(
     // the row writes are atomic; if the function dies between, the next
     // tick re-runs from the previous cursor (idempotent because rows are
     // keyed on (rooflinkId, dataVersion)).
-    await db.$transaction(async (tx) => {
-      const dataVersion = run.id;
-      for (const item of batch.items) {
-        if (source === 'rooflink_jobs') {
-          await tx.rawRooflinkJob.upsert({
-            where: {
-              rooflinkId_dataVersion: {
+    //
+    // We use `createMany` with `skipDuplicates: true` instead of looping
+    // over `upsert`. Rationale:
+    //   - dataVersion = run.id, so within a single run the natural key
+    //     (rooflinkId, dataVersion) is genuinely unique per Rooflink item.
+    //     There are no "updates" to perform — only inserts or no-ops on
+    //     retry.
+    //   - Serverless Postgres round-trip latency dominates (~100-200ms per
+    //     query). For a 200-row batch, sequential upsert is ~30s+;
+    //     createMany is one round-trip, regardless of batch size.
+    //   - skipDuplicates handles the re-tick-after-partial-commit case
+    //     cleanly: if the transaction crashed mid-write last time, the
+    //     same rows are simply skipped on the retry, and the cursor
+    //     advance lands atomically.
+    //
+    // The 30s timeout is now overkill but stays as defense-in-depth.
+    const dataVersion = run.id;
+    await db.$transaction(
+      async (tx) => {
+        if (batch.items.length > 0) {
+          if (source === 'rooflink_jobs') {
+            await tx.rawRooflinkJob.createMany({
+              data: batch.items.map((item) => ({
                 rooflinkId: item.id,
                 dataVersion,
-              },
-            },
-            create: { rooflinkId: item.id, dataVersion, payload: item.payload as object },
-            update: { payload: item.payload as object },
-          });
-        } else {
-          await tx.rawRooflinkLineItems.upsert({
-            where: {
-              estimateId_dataVersion: {
+                payload: item.payload as object,
+              })),
+              skipDuplicates: true,
+            });
+          } else {
+            await tx.rawRooflinkLineItems.createMany({
+              data: batch.items.map((item) => ({
                 estimateId: item.id,
                 dataVersion,
-              },
-            },
-            create: { estimateId: item.id, dataVersion, payload: item.payload as object },
-            update: { payload: item.payload as object },
-          });
+                payload: item.payload as object,
+              })),
+              skipDuplicates: true,
+            });
+          }
         }
-      }
 
-      await tx.backfillRun.update({
-        where: { id: runId },
-        data: {
-          cursor: batch.nextCursor,
-          itemsProcessed: { increment: batch.items.length },
-          itemsTotal: batch.itemsTotal ?? run.itemsTotal,
-          consecutiveErrors: 0,
-          claimedAt: null, // release claim on success
-        },
-      });
-    });
+        await tx.backfillRun.update({
+          where: { id: runId },
+          data: {
+            cursor: batch.nextCursor,
+            itemsProcessed: { increment: batch.items.length },
+            itemsTotal: batch.itemsTotal ?? run.itemsTotal,
+            consecutiveErrors: 0,
+            claimedAt: null, // release claim on success
+          },
+        });
+      },
+      { timeout: 30_000, maxWait: 5_000 },
+    );
 
     if (batch.nextCursor === null) {
       // Done. Promote this dataVersion (different rules for full vs
@@ -154,25 +172,31 @@ export async function runTick(
       itemsTotal: batch.itemsTotal ?? run.itemsTotal ?? undefined,
     };
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
+    // Stored error is the sanitized, user-safe summary — the failure banner
+    // on /dashboard/scheduler renders it directly. The raw error is logged
+    // to stdout for operators who need the stack trace.
+    const userMsg = sanitizeBackfillError(e);
+    // eslint-disable-next-line no-console
+    console.error(`[backfill] tick error on run #${runId}:`, e);
+
     const next = await db.backfillRun.update({
       where: { id: runId },
       data: {
         errorCount: { increment: 1 },
         consecutiveErrors: { increment: 1 },
-        lastError: msg,
+        lastError: userMsg,
         claimedAt: null,
       },
     });
 
     if (next.consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
-      await markFailed(runId, msg);
-      return { status: 'failed', message: msg };
+      await markFailed(runId, userMsg);
+      return { status: 'failed', message: userMsg };
     }
 
     // Below threshold: try again on the next tick.
     await publishNextTick({ runId, destinationUrl, delaySec: 5 });
-    return { status: 'progressed', message: `transient: ${msg}` };
+    return { status: 'progressed', message: `transient: ${userMsg}` };
   }
 }
 
@@ -367,6 +391,22 @@ async function promote(
         },
       }),
     ]);
+  }
+
+  // Bust the in-process snapshot caches so the next dashboard request
+  // recomputes from the freshly-promoted data. Per-instance only — Fluid
+  // Compute instances that didn't promote will recompute on their next miss,
+  // which is fine: cache key includes the promoted-run-id set, so any stale
+  // slot will fail the version-key check and refresh.
+  //
+  // Look up the tenant first so the invalidation is correctly scoped.
+  const promotedRun = await db.backfillRun.findUnique({
+    where: { id: runId },
+    select: { tenantId: true },
+  });
+  if (promotedRun) {
+    invalidateDataSnapshot(promotedRun.tenantId);
+    invalidateWriteOffsSnapshot(promotedRun.tenantId);
   }
 
   // Stdout log + success email — mirrors the failure path so all run
