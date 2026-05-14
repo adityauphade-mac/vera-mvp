@@ -81,8 +81,8 @@ test.describe('Dashboard DB-source path', () => {
     // Ensure the demo tenant exists (the global setup wipes Backfill* but
     // leaves Tenant alone; if it's missing for some reason, create it).
     await client.query(
-      `INSERT INTO "Tenant" (id, slug, name, "createdAt", "updatedAt")
-       VALUES (1, 'priority-roofs', 'Priority Roofs', NOW(), NOW())
+      `INSERT INTO "Tenant" (id, slug, name, "createdAt")
+       VALUES (1, 'priority-roofs', 'Priority Roofs', NOW())
        ON CONFLICT (id) DO NOTHING`,
     );
 

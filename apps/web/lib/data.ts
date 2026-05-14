@@ -5,9 +5,9 @@ import {
   type GeneratedData,
   type RoofLinkJob,
 } from '@vera/types';
-import { isInARWorkingSet, repRollups, toARJob } from '@vera/domain';
+import { repRollups, toARJob } from '@vera/domain';
 import generatedJson from '@/data/generated.json';
-import { getLiveJobs, promotedVersionIds } from './backfill/merge-view';
+import { getLiveARJobsWithContext, promotedVersionIds } from './backfill/merge-view';
 import { auth } from './auth';
 
 /**
@@ -53,59 +53,49 @@ interface DbCacheSlot {
 const dbCache = new Map<number, DbCacheSlot>();
 
 /**
- * Build an address-occurrence map from the full parsed Rooflink population
- * (not just the AR working set). The duplicate-address anomaly relies on
- * counting across the entire dataset — matches `scripts/preprocess.ts`.
- */
-function computeAddressCounts(parsedJobs: RoofLinkJob[]): Map<string, number> {
-  const counts = new Map<string, number>();
-  for (const job of parsedJobs) {
-    const addr = (job.full_address ?? job.address ?? '').trim().toLowerCase();
-    if (addr) counts.set(addr, (counts.get(addr) ?? 0) + 1);
-  }
-  return counts;
-}
-
-/**
- * Read the latest promoted rooflink_jobs snapshot from the DB, run the
- * preprocess transform at request time, and return the same `GeneratedData`
- * shape the JSON path produces. Cached per tenant; cache key is the
- * concatenated promoted-run-id list so any promote (full or incremental)
- * naturally invalidates the slot.
+ * Read the latest promoted rooflink_jobs snapshot from the DB and project it
+ * into `GeneratedData`. The heavy lifting that used to happen in Node —
+ * filtering 120k jobs down to ~130 AR-eligible ones, and counting addresses
+ * across the full population for the duplicate-address anomaly — both now
+ * happen in Postgres via `getLiveARJobsWithContext`. Node only receives the
+ * AR working set (~130 rows) plus a per-job `addressCount`, dropping the
+ * cold-miss transfer from ~200 MB to ~650 KB.
+ *
+ * Cached per tenant; cache key is the concatenated promoted-run-id list so
+ * any promote (full or incremental) naturally invalidates the slot.
  */
 async function getDataFromDb(tenantId: number): Promise<GeneratedData> {
   // CHEAP cache-key probe first: pull just the promoted-run-id list (a
   // small `SELECT id FROM BackfillRun WHERE promoted=true` — milliseconds)
-  // and compare against the cached version before any heavy fetch. This
-  // keeps cache hits at ~10ms instead of paying the multi-second cost of
-  // pulling 100k+ raw payloads on every request.
+  // and compare against the cached version before any heavy fetch.
   const promotedIds = await promotedVersionIds(tenantId, 'rooflink_jobs');
   const versionKey = promotedIds.join(',');
 
   const cached = dbCache.get(tenantId);
   if (cached && cached.versionKey === versionKey) return cached.data;
 
-  // Cache miss — do the heavy work.
-  const rawRows = await getLiveJobs(tenantId);
+  // Cache miss — do the (now much smaller) fetch.
+  const rawRows = await getLiveARJobsWithContext(tenantId);
   const now = new Date();
 
-  // Parse every payload — anything that fails the schema is dropped (the
-  // preprocess pipeline does the same with `safeParse + continue`). Counting
-  // parse failures here is unnecessary noise; the merge view returns a
-  // bounded set and verification at backfill-time catches structural drift.
-  const parsedJobs: RoofLinkJob[] = [];
+  // Reconstruct the addressCounts map from the per-row counts the SQL
+  // computed. Rows whose `addressCount` is 1 don't need to be in the map
+  // (the domain transform treats absence-or-1 as "not duplicated"), but
+  // including them is harmless and keeps the lookup simple.
+  const addressCounts = new Map<string, number>();
+  const parsedJobs: { job: RoofLinkJob; addressCount: number }[] = [];
   for (const row of rawRows) {
     const parsed = RoofLinkJobSchema.safeParse(row.payload);
-    if (parsed.success) parsedJobs.push(parsed.data);
+    if (!parsed.success) continue;
+    const job = parsed.data;
+    parsedJobs.push({ job, addressCount: row.addressCount });
+    const addr = (job.full_address ?? job.address ?? '').trim().toLowerCase();
+    if (addr && row.addressCount > 1) addressCounts.set(addr, row.addressCount);
   }
 
-  // Address counts span the FULL parsed population, not just AR jobs —
-  // matches preprocess.ts:60 so the duplicate-address anomaly fires
-  // identically.
-  const addressCounts = computeAddressCounts(parsedJobs);
-  const arJobs = parsedJobs
-    .filter(isInARWorkingSet)
-    .map((job) => toARJob(job, { addressCounts, now }));
+  // SQL has already applied the AR working-set filter, so no in-Node filter
+  // step here — every row is AR-eligible by construction.
+  const arJobs = parsedJobs.map(({ job }) => toARJob(job, { addressCounts, now }));
 
   const totalAR = arJobs.reduce((sum, j) => sum + j.balance, 0);
   const reps = repRollups(arJobs);

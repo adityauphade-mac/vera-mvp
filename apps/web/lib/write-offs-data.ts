@@ -9,7 +9,7 @@ import {
 import { toWriteOffRecord } from '@vera/domain';
 import writeOffsJson from '@/data/write-offs.json';
 import {
-  getLiveJobs,
+  getLiveJobsForWriteOffs,
   getLiveLineItems,
   promotedVersionIds,
 } from './backfill/merge-view';
@@ -83,9 +83,11 @@ async function getWriteOffsFromDb(tenantId: number): Promise<WriteOffsFile> {
   const cached = dbCache.get(tenantId);
   if (cached && cached.versionKey === versionKey) return cached.data;
 
-  // Cache miss — do the heavy work.
+  // Cache miss — do the (now narrowed) fetch. SQL pre-filters jobs to those
+  // with a primary_estimate.id AND date_completed >= INSTALL_DATE_CUTOFF, so
+  // we transfer ~400-2000 candidate jobs instead of all ~120k.
   const [jobRows, lineItemsRows] = await Promise.all([
-    getLiveJobs(tenantId),
+    getLiveJobsForWriteOffs(tenantId, INSTALL_DATE_CUTOFF),
     getLiveLineItems(tenantId),
   ]);
 
@@ -98,15 +100,13 @@ async function getWriteOffsFromDb(tenantId: number): Promise<WriteOffsFile> {
   }
 
   // Project each (job, payload) pair into a WriteOffRecord. Scope is
-  // all-estimates (no AR working-set filter) with an install-date cutoff —
-  // mirrors scripts/regen-write-offs-from-db.ts so DB and JSON paths agree.
+  // all-estimates (no AR working-set filter); the install-date cutoff is
+  // applied in SQL (above) — mirrors scripts/regen-write-offs-from-db.ts so
+  // DB and JSON paths agree.
   const records: WriteOffRecord[] = [];
   let candidatesFetched = 0;
   const fetchErrors = 0;
   let skipped404 = 0;
-  const cutoffMs = INSTALL_DATE_CUTOFF
-    ? new Date(INSTALL_DATE_CUTOFF).getTime()
-    : null;
 
   for (const row of jobRows) {
     const parsed = RoofLinkJobSchema.safeParse(row.payload);
@@ -129,11 +129,8 @@ async function getWriteOffsFromDb(tenantId: number): Promise<WriteOffsFile> {
     const record = toWriteOffRecord(job, payload);
     if (!record) continue;
 
-    if (cutoffMs !== null) {
-      if (record.installDate == null) continue;
-      const installMs = new Date(record.installDate).getTime();
-      if (Number.isNaN(installMs) || installMs < cutoffMs) continue;
-    }
+    // Install-date cutoff is now enforced in SQL by getLiveJobsForWriteOffs.
+    // No redundant TS filter here.
 
     records.push(record);
   }
