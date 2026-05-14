@@ -2,7 +2,7 @@
 
 What's been deployed to production, when, and what's pending.
 
-> Last updated: 2026-05-14
+> Last updated: 2026-05-14 (multi-recipient + audited follow-up send)
 
 ---
 
@@ -35,6 +35,46 @@ manual deploy after every merge to `main`.
 ## Release log
 
 Reverse-chronological. Each entry describes the user-visible behavior change.
+
+### 2026-05-14 — Multi-recipient notifications + audited follow-up send
+
+**`0cdedd0` — Two related features shipped together.**
+
+*Multi-recipient notifications.* Every notification surface in the
+scheduler — daily AR brief, weekly summary, monthly close, and both
+data-sync sources (`rooflink_jobs`, `rooflink_lineitems`) — now accepts
+up to six recipient emails instead of one. A new `EmailChipInput`
+primitive in `@vera/ui` drives the UX (paste-splits on commas, Backspace
+removes the last chip, invalid emails caught inline). Sync emails read
+from `BackfillSchedule.recipients` rather than fanning out to every user
+on the tenant, so the operator now controls who hears about a sync run.
+Run-now is gated on a non-empty recipients list to prevent silent
+no-email syncs; when the list is empty, `tick-worker` writes
+`backfill.notification_skipped_no_recipients` to the audit log.
+
+*Audited follow-up email send.* The "Draft email" button on
+`/dashboard/follow-ups` now opens a compose modal with TO + CC chip
+inputs, sends through Resend via a new audited route
+`/api/follow-ups/send`, and writes a row to `AuditLog` per send. The old
+`mailto:` fallback is retired.
+
+**Schema migrations applied to prod:**
+
+- `20260514120527_schedule_recipients_array` — `Schedule.recipient` →
+  `Schedule.recipients TEXT[]`; `BackfillSchedule` gains
+  `recipients TEXT[]`. Non-destructive: existing recipient values were
+  preserved as single-element arrays.
+- `20260514120845_sendlog_toemails_array` — `SendLog.toEmail` →
+  `SendLog.toEmails TEXT[]`. Same non-destructive pattern.
+
+Both Schedule and BackfillSchedule were empty in prod at deploy time, so
+no rows needed backfilling. SendLog was also empty.
+
+**Rollback:** `vercel rollback` to the prior production deployment
+(`dpl_HJ1XhgoNZRUr2Gv6L7YvFBPFUQpg`), then reverse the schema by hand
+against `vera_prod` (ADD old column → backfill from `recipients[1]` →
+DROP new column). Inverse SQL kept in the commit message of the next
+revert if needed.
 
 ### 2026-05-14 — Documentation revamp (no runtime change)
 
