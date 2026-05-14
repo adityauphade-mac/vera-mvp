@@ -36,6 +36,26 @@ manual deploy after every merge to `main`.
 
 Reverse-chronological. Each entry describes the user-visible behavior change.
 
+### 2026-05-14 — Documentation revamp (no runtime change)
+
+**`5bc354a` + `f499a83` — Docs-only.** Full revamp of the project's
+documentation post-DB-cutover. 29 markdown files → 17 active + 10
+historical. Every active doc reflects the current production topology
+(GCP Cloud SQL, DB read path, PDF emails, Playwright safety guard).
+
+New docs: `docs/SYNC_EMAIL.md`, `docs/GCP_DB_ADMIN.md`, `docs/BACKLOG.md`
+(consolidated from three earlier backlogs). Historical plans moved to
+`docs/_history/`. New `CLAUDE.md` rule #14: every prod deploy gets a
+release-log entry — this commit is the first one to follow it.
+
+No runtime behavior change. The deploy refreshes the Vercel build
+artifact and propagates the docs to the canonical Git remote. Production
+APIs / dashboards continue to behave exactly as before.
+
+**Rollback:** `vercel rollback` to the prior production deployment if
+something unexpected breaks; the prior deployment is functionally
+identical anyway.
+
 ### 2026-05-14 — Database cutover day
 
 A long day. Multiple shipments and one rolled-back attempt.
