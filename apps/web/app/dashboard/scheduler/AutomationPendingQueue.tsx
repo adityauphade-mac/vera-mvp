@@ -44,11 +44,6 @@ export function AutomationPendingQueue({
   const [overrides, setOverrides] = useState<Record<number, string>>({});
   const [busy, setBusy] = useState<number | null>(null);
   const [bulkBusy, setBulkBusy] = useState(false);
-  // Per-row "outgoing" state — drives the slide+fade animation on the card
-  // while the request is in flight and just after success. Keyed by row id.
-  const [outgoing, setOutgoing] = useState<
-    Record<number, 'approve' | 'reject' | null>
-  >({});
   const confirm = useConfirm();
 
   const load = useCallback(async () => {
@@ -82,7 +77,6 @@ export function AutomationPendingQueue({
     });
     if (!ok) return;
     setBusy(row.id);
-    setOutgoing((o) => ({ ...o, [row.id]: 'approve' }));
     const id = toast.loading('Sending…');
     try {
       const res = await fetch(
@@ -96,8 +90,6 @@ export function AutomationPendingQueue({
         },
       );
       if (!res.ok) {
-        // Restore the card if the send failed so the user can retry.
-        setOutgoing((o) => ({ ...o, [row.id]: null }));
         const data = (await res.json().catch(() => null)) as
           | { error?: { message?: string } }
           | null;
@@ -105,11 +97,7 @@ export function AutomationPendingQueue({
         return;
       }
       toast.success(`Sent to ${recipient}`, { id });
-      // Let the slide+fade play before re-fetching — the card disappears
-      // on load() and we want the animation to actually be seen.
-      window.setTimeout(() => {
-        void load();
-      }, 380);
+      await load();
     } finally {
       setBusy(null);
     }
@@ -126,7 +114,6 @@ export function AutomationPendingQueue({
     });
     if (!ok) return;
     setBusy(row.id);
-    setOutgoing((o) => ({ ...o, [row.id]: 'reject' }));
     try {
       const res = await fetch(
         `/api/automation-rules/pending/${row.id}/reject`,
@@ -137,14 +124,11 @@ export function AutomationPendingQueue({
         },
       );
       if (!res.ok) {
-        setOutgoing((o) => ({ ...o, [row.id]: null }));
         toast.error('Reject failed');
         return;
       }
       toast.success('Rejected');
-      window.setTimeout(() => {
-        void load();
-      }, 380);
+      await load();
     } finally {
       setBusy(null);
     }
@@ -185,11 +169,6 @@ export function AutomationPendingQueue({
     let sent = 0;
     let failed = 0;
     for (const row of eligible) {
-      // Kick the row into its "outgoing" animation BEFORE the API call so the
-      // card visibly leaves while the request is in flight. Feels like
-      // direct manipulation — the operator sees the queue shrink in real
-      // time rather than waiting for a bulk reload at the end.
-      setOutgoing((o) => ({ ...o, [row.id]: 'approve' }));
       try {
         const res = await fetch(
           `/api/automation-rules/pending/${row.id}/approve`,
@@ -199,22 +178,17 @@ export function AutomationPendingQueue({
             body: JSON.stringify({}),
           },
         );
-        if (res.ok) {
-          sent += 1;
-        } else {
-          failed += 1;
-          // Snap the failed row back into place so the operator can act on it.
-          setOutgoing((o) => ({ ...o, [row.id]: null }));
-        }
+        if (res.ok) sent += 1;
+        else failed += 1;
       } catch {
         failed += 1;
-        setOutgoing((o) => ({ ...o, [row.id]: null }));
       }
       // Update the loading toast in-place so the operator sees progress.
       toast.loading(`Sending ${sent + failed} of ${eligible.length}…`, {
         id: toastId,
       });
     }
+    setBulkBusy(false);
     if (failed === 0) {
       toast.success(`Sent ${sent} email${sent === 1 ? '' : 's'}`, {
         id: toastId,
@@ -225,12 +199,7 @@ export function AutomationPendingQueue({
         { id: toastId },
       );
     }
-    // Hold the animation in view briefly before re-fetching so the user
-    // perceives the queue clearing rather than a flash of empty.
-    window.setTimeout(() => {
-      void load();
-      setBulkBusy(false);
-    }, 380);
+    await load();
   }
 
   /** Reject every pending / missing_recipient row in one shot. Useful when
@@ -256,7 +225,6 @@ export function AutomationPendingQueue({
     let done = 0;
     let failed = 0;
     for (const row of eligible) {
-      setOutgoing((o) => ({ ...o, [row.id]: 'reject' }));
       try {
         const res = await fetch(
           `/api/automation-rules/pending/${row.id}/reject`,
@@ -266,29 +234,22 @@ export function AutomationPendingQueue({
             body: JSON.stringify({}),
           },
         );
-        if (res.ok) {
-          done += 1;
-        } else {
-          failed += 1;
-          setOutgoing((o) => ({ ...o, [row.id]: null }));
-        }
+        if (res.ok) done += 1;
+        else failed += 1;
       } catch {
         failed += 1;
-        setOutgoing((o) => ({ ...o, [row.id]: null }));
       }
       toast.loading(`Rejecting ${done + failed} of ${eligible.length}…`, {
         id: toastId,
       });
     }
+    setBulkBusy(false);
     if (failed === 0) {
       toast.success(`Rejected ${done}`, { id: toastId });
     } else {
       toast.error(`Rejected ${done}, failed ${failed}`, { id: toastId });
     }
-    window.setTimeout(() => {
-      void load();
-      setBulkBusy(false);
-    }, 380);
+    await load();
   }
 
   const openCount = rows?.length ?? 0;
@@ -354,22 +315,8 @@ export function AutomationPendingQueue({
           {rows.map((row) => {
             const expanded = expandedId === row.id;
             const isMissing = row.status === 'missing_recipient';
-            // Slide+fade animation on approve/reject. Approve "lifts off"
-            // (translate up + slight scale-down, like a paper airplane).
-            // Reject slides right and dims, like dismissing a card.
-            const out = outgoing[row.id];
-            const animationClass =
-              out === 'approve'
-                ? '-translate-y-3 scale-95 opacity-0'
-                : out === 'reject'
-                  ? 'translate-x-6 opacity-0'
-                  : 'translate-y-0 scale-100 opacity-100';
             return (
-              <div
-                key={row.id}
-                className={`transition-all duration-300 ease-out ${animationClass}`}
-              >
-              <Card>
+              <Card key={row.id}>
                 <div className="space-y-2">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="space-y-1">
@@ -455,7 +402,6 @@ export function AutomationPendingQueue({
                   ) : null}
                 </div>
               </Card>
-              </div>
             );
           })}
         </div>
