@@ -226,6 +226,9 @@ importers:
       react-dom:
         specifier: ^19.0.0
         version: 19.2.4(react@19.2.4)
+      react-hook-form:
+        specifier: ^7.54.2
+        version: 7.75.0(react@19.2.4)
       typescript:
         specifier: ^5.7.2
         version: 5.9.3

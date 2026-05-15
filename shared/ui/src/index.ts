@@ -31,3 +31,4 @@ export * from './components/Toaster';
 export * from './components/ToastIcons';
 export * from './components/Tabs';
 export * from './components/EmailChipInput';
+export * from './components/Form';
