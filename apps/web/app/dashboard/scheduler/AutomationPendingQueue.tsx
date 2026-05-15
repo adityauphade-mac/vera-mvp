@@ -33,11 +33,17 @@ interface PendingRow {
   rule: { id: number; name: string };
 }
 
-export function AutomationPendingQueue() {
+export function AutomationPendingQueue({
+  refreshKey = 0,
+}: {
+  /** Parent bumps this after evaluate-now / rule-save to force a re-fetch. */
+  refreshKey?: number;
+}) {
   const [rows, setRows] = useState<PendingRow[] | null>(null);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [overrides, setOverrides] = useState<Record<number, string>>({});
   const [busy, setBusy] = useState<number | null>(null);
+  const [bulkBusy, setBulkBusy] = useState(false);
   const confirm = useConfirm();
 
   const load = useCallback(async () => {
@@ -51,7 +57,7 @@ export function AutomationPendingQueue() {
 
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, refreshKey]);
 
   async function approve(row: PendingRow) {
     const isMissing = row.status === 'missing_recipient';
@@ -128,18 +134,165 @@ export function AutomationPendingQueue() {
     }
   }
 
+  /** Approve every row in `pending` status that has a recipient resolved.
+   *  Rows in `missing_recipient` status are skipped — they need a manual
+   *  override and the user can hit those individually. */
+  async function approveAll() {
+    const eligible = (rows ?? []).filter(
+      (r) => r.status === 'pending' && r.proposedRecipient,
+    );
+    const skipped = (rows ?? []).filter(
+      (r) => r.status === 'missing_recipient',
+    ).length;
+    if (eligible.length === 0) {
+      toast.error('Nothing to approve', {
+        description:
+          skipped > 0
+            ? `${skipped} row${skipped === 1 ? '' : 's'} need${skipped === 1 ? 's' : ''} a recipient override — approve those individually.`
+            : 'No pending sends in the queue.',
+      });
+      return;
+    }
+    const ok = await confirm({
+      title: `Send all ${eligible.length} pending emails?`,
+      description:
+        skipped > 0
+          ? `Vera will send ${eligible.length} email${eligible.length === 1 ? '' : 's'} now. ${skipped} row${skipped === 1 ? '' : 's'} need${skipped === 1 ? 's' : ''} a recipient override and will be skipped — approve those individually.`
+          : `Vera will send ${eligible.length} email${eligible.length === 1 ? '' : 's'} now. Each send is logged in the audit trail.`,
+      confirmLabel: `Send ${eligible.length}`,
+      cancelLabel: 'Keep reviewing',
+    });
+    if (!ok) return;
+
+    setBulkBusy(true);
+    const toastId = toast.loading(`Sending 0 of ${eligible.length}…`);
+    let sent = 0;
+    let failed = 0;
+    for (const row of eligible) {
+      try {
+        const res = await fetch(
+          `/api/automation-rules/pending/${row.id}/approve`,
+          {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({}),
+          },
+        );
+        if (res.ok) sent += 1;
+        else failed += 1;
+      } catch {
+        failed += 1;
+      }
+      // Update the loading toast in-place so the operator sees progress.
+      toast.loading(`Sending ${sent + failed} of ${eligible.length}…`, {
+        id: toastId,
+      });
+    }
+    setBulkBusy(false);
+    if (failed === 0) {
+      toast.success(`Sent ${sent} email${sent === 1 ? '' : 's'}`, {
+        id: toastId,
+      });
+    } else {
+      toast.error(
+        `Sent ${sent}, failed ${failed} — check the audit log for details`,
+        { id: toastId },
+      );
+    }
+    await load();
+  }
+
+  /** Reject every pending / missing_recipient row in one shot. Useful when
+   *  a misconfigured rule avalanches the queue. */
+  async function rejectAll() {
+    const eligible = (rows ?? []).filter(
+      (r) => r.status === 'pending' || r.status === 'missing_recipient',
+    );
+    if (eligible.length === 0) {
+      toast.error('Nothing to reject');
+      return;
+    }
+    const ok = await confirm({
+      title: `Reject all ${eligible.length} pending sends?`,
+      description: `Vera won't send any of these emails. Each rejection is logged in the audit trail.`,
+      confirmLabel: `Reject ${eligible.length}`,
+      cancelLabel: 'Keep reviewing',
+      destructive: true,
+    });
+    if (!ok) return;
+    setBulkBusy(true);
+    const toastId = toast.loading(`Rejecting 0 of ${eligible.length}…`);
+    let done = 0;
+    let failed = 0;
+    for (const row of eligible) {
+      try {
+        const res = await fetch(
+          `/api/automation-rules/pending/${row.id}/reject`,
+          {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({}),
+          },
+        );
+        if (res.ok) done += 1;
+        else failed += 1;
+      } catch {
+        failed += 1;
+      }
+      toast.loading(`Rejecting ${done + failed} of ${eligible.length}…`, {
+        id: toastId,
+      });
+    }
+    setBulkBusy(false);
+    if (failed === 0) {
+      toast.success(`Rejected ${done}`, { id: toastId });
+    } else {
+      toast.error(`Rejected ${done}, failed ${failed}`, { id: toastId });
+    }
+    await load();
+  }
+
   const openCount = rows?.length ?? 0;
+  const approvableCount = (rows ?? []).filter(
+    (r) => r.status === 'pending' && r.proposedRecipient,
+  ).length;
 
   return (
     <div className="space-y-3">
-      <div className="flex items-baseline justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="font-display text-lg tracking-tight">
           Pending sends{rows ? ` (${openCount})` : ''}
         </h3>
         {rows && rows.length > 0 ? (
-          <p className="text-text-muted text-xs">
-            Vera proposed these — approve to send, reject to dismiss.
-          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={rejectAll}
+              disabled={bulkBusy || busy !== null}
+            >
+              <X className="mr-1 h-3.5 w-3.5" />
+              Reject all
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={approveAll}
+              disabled={bulkBusy || busy !== null || approvableCount === 0}
+              title={
+                approvableCount === 0
+                  ? 'Each row needs a recipient override — approve individually'
+                  : undefined
+              }
+            >
+              <Check className="mr-1 h-3.5 w-3.5" />
+              {bulkBusy
+                ? 'Sending…'
+                : approvableCount === openCount
+                  ? `Approve all (${approvableCount})`
+                  : `Approve ${approvableCount} of ${openCount}`}
+            </Button>
+          </div>
         ) : null}
       </div>
 
@@ -204,7 +357,7 @@ export function AutomationPendingQueue() {
                         variant="secondary"
                         size="sm"
                         onClick={() => reject(row)}
-                        disabled={busy === row.id}
+                        disabled={busy === row.id || bulkBusy}
                       >
                         <X className="mr-1 h-3.5 w-3.5" />
                         Reject
@@ -213,7 +366,7 @@ export function AutomationPendingQueue() {
                         variant="primary"
                         size="sm"
                         onClick={() => approve(row)}
-                        disabled={busy === row.id}
+                        disabled={busy === row.id || bulkBusy}
                       >
                         <Check className="mr-1 h-3.5 w-3.5" />
                         Approve

@@ -53,6 +53,10 @@ export function AutomationTab() {
   const [editing, setEditing] = useState<ServerRule | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [evaluating, setEvaluating] = useState(false);
+  // Bumped after Evaluate now / Save rule / any mutation that may add new
+  // pending rows. AutomationPendingQueue re-fetches when this changes — so
+  // the queue stays in sync with the rule list without a page refresh.
+  const [pendingRefreshKey, setPendingRefreshKey] = useState(0);
   const confirm = useConfirm();
 
   const loadRules = useCallback(async () => {
@@ -104,6 +108,9 @@ export function AutomationTab() {
         { id },
       );
       await loadRules();
+      // Tell the pending queue to re-fetch so the new rows show up without
+      // a page refresh.
+      setPendingRefreshKey((k) => k + 1);
     } finally {
       setEvaluating(false);
     }
@@ -257,8 +264,10 @@ export function AutomationTab() {
         </div>
       )}
 
-      {/* Pending queue lives under the rule list — see Phase B-6 */}
-      <AutomationPendingQueue />
+      {/* Pending queue lives under the rule list — see Phase B-6.
+          `refreshKey` is bumped by `evaluateNow` above so the queue
+          re-fetches without the user having to reload the page. */}
+      <AutomationPendingQueue refreshKey={pendingRefreshKey} />
 
       <AutomationRuleModal
         open={modalOpen}
