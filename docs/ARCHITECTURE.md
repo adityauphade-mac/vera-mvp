@@ -1,19 +1,19 @@
 # Vera MVP — Architecture & Tech Stack
 
-> Last updated: 2026-05-14
+> Last updated: 2026-05-15
 
 ## At a glance
 
 - **Monorepo** managed by **pnpm workspaces** + **Turborepo**.
 - **One Next.js 16 app** (`apps/web`) — UI + API routes deployed as Vercel Functions in the same project.
 - **Shared code** under `shared/` — types/schemas, UI components, pure domain logic, utilities.
-- **Postgres on GCP Cloud SQL** (`vera_prod` database, scoped `vera_app` role). 11-table schema covering app state (Tenant, User, Schedule, Briefing, SendLog, AuditLog, FailureNotificationSetting) and the backfill pipeline (BackfillSchedule, BackfillRun, RawRooflinkJob, RawRooflinkLineItems). One tenant onboarded today (Priority Roofs · Dallas).
-- **Live data via SQL pushdown.** Dashboards read from Postgres at request time via `apps/web/lib/backfill/merge-view.ts`. The SQL filters to the AR working set and computes the duplicate-address aggregation server-side, transferring ~650 KB per cold request (vs ~200 MB with the naïve "select all, filter in Node" approach we started with). Domain transforms (heat score, anomalies, reconciliation) run in TypeScript on the filtered set.
+- **Postgres on GCP Cloud SQL** (`vera_prod` database, scoped `vera_app` role). 11-table schema covering app state (Tenant, User, Schedule, Briefing, SendLog, AuditLog, FailureNotificationSetting) and the backfill pipeline (BackfillSchedule, BackfillRun, RawRooflinkJob, RawRooflinkLineItems). Plus one **materialized view** (`LiveJob`) that's the dashboard's read projection — see below. One tenant onboarded today (Priority Roofs · Dallas).
+- **Live data via materialized view.** Dashboards read from the `LiveJob` materialized view in Postgres, defined in [apps/web/prisma/migrations/20260515000000_add_livejob_materialized_view](../apps/web/prisma/migrations/20260515000000_add_livejob_materialized_view/migration.sql). LiveJob holds one deduplicated row per `(tenantId, rooflinkId)` with the AR/write-offs filter fields and the duplicate-address count extracted as proper indexed columns — no JSONB parsing on the hot read path. AR query is now ~1 ms (partial-index lookup), down from ~1200 ms when reading `RawRooflinkJob` directly. The view refreshes via `REFRESH MATERIALIZED VIEW CONCURRENTLY "LiveJob"` inside `tick-worker.promote()` after each non-empty `rooflink_jobs` promote; CONCURRENTLY keeps readers unblocked. Domain transforms (heat score, anomalies, reconciliation) still run in TypeScript on the filtered set returned by [apps/web/lib/backfill/merge-view.ts](../apps/web/lib/backfill/merge-view.ts).
 - **Auth**: Auth.js v5 + Google OAuth, JWT session strategy, `/dashboard/*` gated by middleware.
 - **AI**: Anthropic Claude Sonnet 4.6 — daily briefing + the Ask Vera chat panel.
 - **Email**: Resend, verified sender domain `makanalytics.org`. PDFs (daily AR brief + backfill sync-complete report) generated in-process with `@react-pdf/renderer`.
 - **Cron**: two engines. **GitHub Actions** runs the every-15-min sweep that polls `BackfillSchedule` and `Schedule` for due rows, plus the daily AI briefing generator. **Upstash QStash** drives per-tick backfill chains — each `/api/cron/backfill-tick` invocation fetches one Rooflink page and publishes the next tick. QStash requests are JWT-signed and verified via `lib/cron-auth.ts`.
-- **Backfill pipeline**: `BackfillRun` is append-only with a `dataVersion` tag. The merge view picks the latest payload per natural key across all `promoted=true` runs. Atomic promote = zero-downtime data swap.
+- **Backfill pipeline**: `BackfillRun` is append-only with a `dataVersion` tag. The `LiveJob` materialized view projects the latest payload per natural key across all `promoted=true` runs. Atomic promote + `REFRESH MATERIALIZED VIEW CONCURRENTLY` = zero-downtime data swap. Empty-incremental runs (zero new rows) short-circuit: they complete without promoting, so no refresh or cache bust fires for syncs that found nothing.
 - **End-to-end tests** via Playwright — 112+ specs, JWT-cookie helper for auth-gated specs, hard guard that refuses to wipe a DB with promoted runs.
 - **Deployed** to Vercel (`vera-mvp.vercel.app`). Auto-deploy is broken pending identity reconciliation — manual `vercel --prod --yes` from the canonical repo until then.
 
@@ -223,11 +223,14 @@ Cache key probe (SELECT id FROM BackfillRun WHERE promoted=true)
    ├─ hit → return cached GeneratedData
    └─ miss:
       ├─ getLiveARJobsWithContext(tenantId)
-      │   └─ ONE SQL query against vera_prod:
-      │      DISTINCT ON (rooflinkId) latest payload per AR-eligible job
-      │      LEFT JOIN address-count CTE
-      │      → ~130 rows × ~5 KB = ~650 KB transferred
-      ├─ Zod parse + toARJob() per row
+      │   └─ ONE SQL query against the LiveJob materialized view:
+      │      partial-index lookup on (tenantId, dateCompleted, balance)
+      │      filtered to AR-eligible (dateCompleted IS NOT NULL,
+      │      balance > 0, excludeFromQb = false)
+      │      → ~130 rows × ~5 KB = ~650 KB transferred, ~1 ms in Postgres
+      ├─ Zod parse + toARJob() per row (uses the `payload` JSONB column
+      │   retained on LiveJob — the structured columns gate the WHERE,
+      │   the JSONB carries the full Rooflink shape to the domain layer)
       └─ cache + return
 ```
 

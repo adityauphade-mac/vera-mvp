@@ -3,17 +3,21 @@
 What's in the database, what every field means, and how the derived
 metrics (heat score, aging buckets, anomalies) are computed.
 
-> Last updated: May 14, 2026.
+> Last updated: May 15, 2026.
 
 ---
 
 ## ER diagram
 
-The DB has **11 tables** grouped into three logical clusters: app state (the
-original five), the audit and ops surface (added with the audit-log work),
-and the backfill machinery (added with the Rooflink ingest pipeline). Raw
-Rooflink payloads are versioned by `BackfillRun.id` rather than a hard FK —
-the relationship is shown dashed to reflect that.
+The DB has **11 tables + 1 materialized view** grouped into three logical
+clusters: app state (the original five), the audit and ops surface (added
+with the audit-log work), and the backfill machinery (added with the
+Rooflink ingest pipeline). Raw Rooflink payloads are versioned by
+`BackfillRun.id` rather than a hard FK — the relationship is shown dashed
+to reflect that. The materialized view (`LiveJob`) is a derived read
+projection over `RawRooflinkJob` and is documented in its own section
+below; it doesn't appear on the ER diagram because Postgres maintains it
+automatically.
 
 ```mermaid
 erDiagram
@@ -291,21 +295,30 @@ page (in which case `scheduleId` is null) or by the cron dispatcher.
   cleared when the tick exits cleanly. Prevents duplicate ticks under
   QStash's at-least-once delivery.
 - `promoted` — flipped to `true` once the data the run produced has been
-  atomically swapped in. The merge view reads only runs with
-  `promoted = true AND status = 'completed'`.
+  atomically swapped in. Two things consume this flag: the `LiveJob`
+  materialized view filters its source rows by `promoted = true AND
+  status = 'completed'`, and the `tick-worker.promote()` function issues
+  a `REFRESH MATERIALIZED VIEW CONCURRENTLY "LiveJob"` immediately after
+  flipping the flag.
+- **Empty-incremental short-circuit (2026-05-15):** if `mode = 'incremental'`
+  and `itemsProcessed = 0`, the run completes with `promoted = false` —
+  no point refreshing the view or busting the cache for zero new data.
 
 ### `RawRooflinkJob`
 
 Raw Rooflink **job** payloads, one row per `(rooflinkId, dataVersion)`. The
-full API response is kept verbatim — downstream queries (the dashboard
-merge view, the write-offs joiner) pull whatever they need from the JSONB
-payload.
+full API response is kept verbatim. **This is the source of truth, not the
+dashboard read path** — dashboard reads go through the `LiveJob`
+materialized view below.
 
 - `dataVersion` — `= BackfillRun.id` of the run that wrote this row. There
   is no FK constraint; this is by design so a run can be deleted without
-  cascading into millions of raw rows. The merge view filters by
-  `dataVersion = ANY($promotedIds)` instead.
-- `payload` — the verbatim Rooflink job object.
+  cascading into millions of raw rows. The `LiveJob` view filters its
+  source via `JOIN BackfillRun ON id = dataVersion WHERE promoted = true`.
+- `payload` — the verbatim Rooflink job object. The dashboard never parses
+  this JSONB on the hot read path anymore; `LiveJob` extracts the few
+  fields the dashboard needs as proper columns and keeps `payload` for
+  fields code hasn't migrated yet.
 - `fetchedAt` — wall-clock at write-time. Useful for "when did we last see
   this record" debugging; not used by the read path.
 
@@ -317,8 +330,68 @@ breakdown. Keyed on `(estimateId, dataVersion)`.
 - One row per estimate per `BackfillRun`. The lineitems backfill is slower
   than the jobs backfill (one Rooflink request per estimate at 1 req/sec)
   so this table grows in step with how many estimates have been backfilled.
-- The write-offs dispatcher joins this against `RawRooflinkJob` payloads
-  via `payload->primary_estimate.id`.
+- The write-offs dispatcher joins this against `LiveJob` (which carries
+  `primaryEstimateId` as an extracted column) via `LiveJob.primaryEstimateId
+  = RawRooflinkLineItems.estimateId`.
+
+### `LiveJob` (materialized view)
+
+**Not a regular table** — a Postgres materialized view, defined in
+[apps/web/prisma/migrations/20260515000000_add_livejob_materialized_view/migration.sql](../apps/web/prisma/migrations/20260515000000_add_livejob_materialized_view/migration.sql).
+
+One row per `(tenantId, rooflinkId)`, already deduplicated across the
+promoted `BackfillRun` chain via `DISTINCT ON ... ORDER BY dataVersion DESC`.
+The hot fields the dashboard filters on are extracted as proper columns,
+indexed by partial indexes, so the dashboard's read query is a single
+bitmap index scan (~1 ms) instead of a 1+ second `DISTINCT ON` over JSONB.
+
+Columns:
+
+- `tenantId`, `rooflinkId` — natural key. Unique index supports `REFRESH
+  ... CONCURRENTLY`.
+- `payload` — the original JSONB blob, retained as an escape hatch so code
+  that hasn't migrated to structured columns yet still works.
+- `dateCompleted` — `NULLIF(payload->>'date_completed', '')::date`. The
+  NULLIF defends against Rooflink occasionally sending empty strings.
+- `balance` — `NULLIF(payload->'primary_estimate'->>'balance', '')::numeric`.
+- `excludeFromQb` — `COALESCE((payload->>'exclude_from_qb') = 'true', false)`.
+  The COALESCE is **load-bearing**: the old JSONB read treated a missing
+  field as "not excluded" (i.e. include in AR). Without the COALESCE, a
+  missing field becomes NULL, and the AR filter `WHERE "excludeFromQb" =
+  false` would silently drop those rows.
+- `primaryEstimateId` — `payload->'primary_estimate'->>'id'`. Used by the
+  write-offs join.
+- `normalizedAddress` — `TRIM(LOWER(COALESCE(payload->>'full_address',
+  payload->>'address', '')))`. Used by the duplicate-address anomaly.
+- `addressDupCount` — `COUNT(*) OVER (PARTITION BY tenantId,
+  normalizedAddress)`. Pre-computed so dashboard reads don't re-aggregate
+  on every request.
+- `fetchedAt`, `dataVersion` — provenance carried through from
+  `RawRooflinkJob`.
+
+Indexes:
+
+- `LiveJob_tenant_rooflinkId_key` — unique, required for `REFRESH
+  CONCURRENTLY`.
+- `LiveJob_ar_partial_idx` — partial index on `(tenantId, dateCompleted,
+  balance)` filtered by `dateCompleted IS NOT NULL AND balance > 0 AND
+  excludeFromQb = false`. Makes the AR working-set query a pure index
+  lookup (~127 rows in vera_dev today).
+- `LiveJob_writeoff_partial_idx` — partial index on `(tenantId,
+  dateCompleted)` filtered by `primaryEstimateId IS NOT NULL`. Same
+  treatment for the write-offs candidate set.
+
+Refresh: `REFRESH MATERIALIZED VIEW CONCURRENTLY "LiveJob"` runs inside
+`tick-worker.promote()` after each non-empty `rooflink_jobs` promote.
+Cost is ~3 s on 100 k rows — same shape of work the dashboard *used to*
+do on every cache miss, now paid once on the backfill worker side. The
+unique index on `(tenantId, rooflinkId)` is what enables CONCURRENTLY
+(reads aren't blocked during the refresh).
+
+The `LiveJob` definition is the only place columns get extracted from
+the JSONB payload. To add a new structured column: edit the migration,
+drop and recreate the view, REFRESH. No data migration needed — the
+view rebuilds from `RawRooflinkJob`.
 
 ---
 
@@ -347,7 +420,7 @@ flowchart TD
 
     subgraph DBPath ["DB path (flag = 1)"]
         direction TB
-        SQL["SQL SELECT against Postgres<br/>RawRooflinkJob + RawRooflinkLineItems<br/>(only rows from promoted BackfillRuns)"]
+        SQL["SQL SELECT against LiveJob materialized view<br/>(deduped, indexed columns, no JSONB on the read path)<br/>+ RawRooflinkLineItems for write-offs join"]
         Transform["Run @vera/domain transform<br/>(heat, aging, anomalies)"]
         SQL --> Transform
     end
@@ -376,13 +449,17 @@ flowchart TD
 
 **DB path** — two steps, fully independent of the JSON file:
 
-1. Run `SELECT ... FROM "RawRooflinkJob" WHERE "dataVersion" = ANY($promotedIds)`
-   in Postgres. This returns the raw Rooflink payloads the backfill
-   pipeline has written. **No JSON file is read.**
-2. Run those payloads through the `@vera/domain` functions
+1. Run `SELECT ... FROM "LiveJob" WHERE "tenantId" = $1 AND <ar-filter>`
+   in Postgres. `LiveJob` is the materialized view documented above —
+   one deduplicated row per (tenant, rooflinkId) with the AR/write-offs
+   filter fields extracted as indexed columns. The query is a partial-index
+   lookup (~1 ms), no JSONB parsing on the hot path. **No JSON file is read.**
+2. Run those rows through the `@vera/domain` functions
    (`toARJob`, `repRollups`, heat / aging / anomaly scoring) — the exact
    same TypeScript functions `scripts/preprocess.ts` runs at build time
-   when producing `generated.json`.
+   when producing `generated.json`. The `payload` JSONB column on `LiveJob`
+   carries the raw object through so the domain functions still see the
+   full Rooflink shape they expect.
 
 The reason the second step exists is that the DB stores raw Rooflink
 data, not dashboard-shaped data. The transform is what converts one into
@@ -398,8 +475,8 @@ the browser sees is byte-for-byte equivalent (modulo `now`).
 
 | Dispatcher | Consumers | JSON source | DB source |
 |---|---|---|---|
-| [apps/web/lib/data.ts](../apps/web/lib/data.ts) | `/api/jobs/aging`, `/api/jobs/milestones`, `/api/jobs/follow-ups`, `/api/jobs/reconciliation`, `/api/reps/outstanding` | `apps/web/data/generated.json` | `RawRooflinkJob` |
-| [apps/web/lib/write-offs-data.ts](../apps/web/lib/write-offs-data.ts) | `/api/jobs/write-offs` and the write-offs server page | `apps/web/data/write-offs.json` | `RawRooflinkJob` × `RawRooflinkLineItems` |
+| [apps/web/lib/data.ts](../apps/web/lib/data.ts) | `/api/jobs/aging`, `/api/jobs/milestones`, `/api/jobs/follow-ups`, `/api/jobs/reconciliation`, `/api/reps/outstanding` | `apps/web/data/generated.json` | `LiveJob` (materialized view over `RawRooflinkJob`) |
+| [apps/web/lib/write-offs-data.ts](../apps/web/lib/write-offs-data.ts) | `/api/jobs/write-offs` and the write-offs server page | `apps/web/data/write-offs.json` | `LiveJob` × `RawRooflinkLineItems` |
 
 Both export a `getData(tenantId)` / `getWriteOffs(tenantId)` function plus a
 `*ForCurrentSession()` server-component variant that pulls `tenantId` from
@@ -407,23 +484,43 @@ the NextAuth session. Routes never read `generated.json` directly.
 
 ### How the DB path knows which rows are "live"
 
-`promoted` on `BackfillRun` is the single source of truth.
+`promoted` on `BackfillRun` is the single source of truth. The dashboard
+hot path reads `LiveJob`, which is **defined** to project only rows from
+promoted, completed `rooflink_jobs` runs:
+
+```sql
+FROM "RawRooflinkJob" r
+JOIN "BackfillRun" br ON br.id = r."dataVersion"
+WHERE br.promoted = true AND br.status = 'completed' AND br.source = 'rooflink_jobs'
+```
+
+So "which rows are live" is encoded in the view definition itself, and
+the dashboard read query is just a partial-index lookup on `LiveJob`.
+
 [apps/web/lib/backfill/merge-view.ts](../apps/web/lib/backfill/merge-view.ts)
-exposes three functions:
+exposes the read helpers:
 
+- `getLiveARJobsWithContext(tenantId)` — `SELECT payload,
+  "addressDupCount" AS "addressCount", "fetchedAt" FROM "LiveJob" WHERE
+  "tenantId" = $1 AND "dateCompleted" IS NOT NULL AND balance > 0 AND
+  "excludeFromQb" = false`. Used by the AR dashboard endpoints.
+- `getLiveJobsForWriteOffs(tenantId, cutoff)` — `SELECT payload,
+  "fetchedAt" FROM "LiveJob" WHERE "tenantId" = $1 AND "primaryEstimateId"
+  IS NOT NULL AND "dateCompleted" >= $2::date`. Used by write-offs.
+- `getLiveJobs(tenantId)` / `getLiveLineItems(tenantId)` — direct
+  `DISTINCT ON` over `RawRooflinkJob` / `RawRooflinkLineItems`. Used by
+  backfill diagnostics and the line-items join (line-items isn't projected
+  into `LiveJob` since the write-offs joiner already needs the full
+  payload).
 - `promotedVersionIds(tenantId, source)` — `SELECT id FROM BackfillRun
-  WHERE promoted = true AND status = 'completed'` for the given source.
-  Returns the chain of run IDs that constitute the live snapshot (one full
-  + N incrementals layered on top).
-- `getLiveJobs(tenantId)` — `SELECT DISTINCT ON ("rooflinkId") ... FROM
-  "RawRooflinkJob" WHERE "dataVersion" = ANY($promotedIds) ORDER BY
-  "rooflinkId", "dataVersion" DESC`. Latest row per `rooflinkId` across
-  all promoted runs.
-- `getLiveLineItems(tenantId)` — same shape, keyed on `estimateId`.
+  WHERE promoted = true AND status = 'completed'`. Still used as the
+  cache version key in `data.ts` and `write-offs-data.ts`.
 
-Promoting a new run flips the `promoted` flag, the next read sees a new
-`promotedIds` list, and a `DISTINCT ON` picks the freshest version per
-natural key.
+Promoting a new run flips the `promoted` flag, the tick worker issues
+`REFRESH MATERIALIZED VIEW CONCURRENTLY "LiveJob"`, then the in-process
+caches in `data.ts` / `write-offs-data.ts` invalidate, and the next read
+sees fresh data from `LiveJob`. CONCURRENTLY means readers aren't
+blocked during the refresh.
 
 ### Caching
 
@@ -564,7 +661,7 @@ Two kinds of state live in our Postgres:
 | Source | Refresh cadence | How |
 |---|---|---|
 | `data/generated.json` (JSON path) | Manual | Run `pnpm preprocess` from the repo root, commit the regenerated file. Used only when `USE_DB_DATA_SOURCE=0`. |
-| `RawRooflinkJob` / `RawRooflinkLineItems` (DB path) | Whatever `BackfillSchedule` says, plus ad-hoc "Run now" | The tick worker writes raw rows, marks the run `promoted=true`, and invalidates the in-process snapshot cache. Used when `USE_DB_DATA_SOURCE=1`. |
+| `RawRooflinkJob` / `RawRooflinkLineItems` (DB path) | Whatever `BackfillSchedule` says, plus ad-hoc "Run now" | The tick worker writes raw rows, marks the run `promoted=true`, refreshes the `LiveJob` materialized view (`REFRESH MATERIALIZED VIEW CONCURRENTLY`), and invalidates the in-process snapshot cache. Used when `USE_DB_DATA_SOURCE=1`. Empty incrementals (`itemsProcessed=0`) short-circuit and skip the promote/refresh entirely. |
 | `Briefing` (AI dashboard briefing) | Daily, weekdays at 7am Central via the `generate-briefings` Upstash QStash schedule | OR on-demand via the "Fetch latest news" button |
 | `Schedule.nextRunAt` | After each fire, advanced via `computeNextRun` | The dispatcher claims a row by atomically advancing this field |
 | `BackfillSchedule.nextRunAt` | After each run, same shape as `Schedule.nextRunAt` | See [docs/BACKFILL_SCHEDULING.md](BACKFILL_SCHEDULING.md) for the dispatcher details |
@@ -593,7 +690,8 @@ record.
 | Brief sender + PDF | `apps/web/app/api/brief/send/route.ts` + `apps/web/lib/daily-brief-pdf.ts` |
 | Dashboard data dispatcher (JSON vs DB) | `apps/web/lib/data.ts` |
 | Write-offs data dispatcher | `apps/web/lib/write-offs-data.ts` |
-| DB read merge view (`DISTINCT ON` per natural key) | `apps/web/lib/backfill/merge-view.ts` |
+| LiveJob materialized view (definition + indexes) | `apps/web/prisma/migrations/20260515000000_add_livejob_materialized_view/migration.sql` |
+| DB read helpers (read `LiveJob` for AR + write-offs; `DISTINCT ON` for diagnostics) | `apps/web/lib/backfill/merge-view.ts` |
 | Backfill tick worker (writes raw rows + promotes) | `apps/web/lib/backfill/tick-worker.ts` |
 | Backfill tick endpoint (QStash delivers ticks here) | `apps/web/app/api/cron/backfill-tick/route.ts` |
 | Backfill dispatcher (kicks runs when `BackfillSchedule.nextRunAt` is due — co-located with brief dispatch) | `apps/web/app/api/cron/dispatch-briefs/route.ts` |
