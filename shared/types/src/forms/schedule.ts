@@ -30,7 +30,7 @@ export const dailyScheduleSchema = z.object({
   cadence: z.literal('daily'),
   timeLocal: time,
   recipients,
-  enabled: z.boolean(),
+  enabled: z.boolean().default(true),
 });
 
 export const weeklyScheduleSchema = z.object({
@@ -38,7 +38,7 @@ export const weeklyScheduleSchema = z.object({
   dayOfWeek,
   timeLocal: time,
   recipients,
-  enabled: z.boolean(),
+  enabled: z.boolean().default(true),
 });
 
 export const monthlyScheduleSchema = z.object({
@@ -46,7 +46,7 @@ export const monthlyScheduleSchema = z.object({
   dayOfMonth,
   timeLocal: time,
   recipients,
-  enabled: z.boolean(),
+  enabled: z.boolean().default(true),
 });
 
 export const scheduleSchema = z.discriminatedUnion('cadence', [

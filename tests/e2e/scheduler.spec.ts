@@ -116,14 +116,15 @@ test.describe('Scheduler', () => {
     ).toBeVisible();
   });
 
-  test('?tab=automation renders the placeholder without crashing', async ({
+  test('?tab=automation renders the AutomationTab without crashing', async ({
     page,
   }) => {
     await page.goto('/dashboard/scheduler?tab=automation');
     await expect(
-      page.getByRole('heading', { name: /Automation rules/i }),
+      page.getByRole('heading', { name: /Automation rules/i }).first(),
     ).toBeVisible();
-    await expect(page.getByText(/Coming in B-5/i)).toBeVisible();
+    // Sanity: the New rule button is the load-bearing CTA on this tab.
+    await expect(page.getByRole('button', { name: /^New rule$/ })).toBeVisible();
   });
 
   test('Tab clicks update the URL query param', async ({ page }) => {

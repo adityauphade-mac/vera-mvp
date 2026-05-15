@@ -89,7 +89,13 @@ export default async function globalSetup(): Promise<void> {
           'DELETE FROM "RawRooflinkLineItems";\n' +
           'DELETE FROM "BackfillRun";\n' +
           'DELETE FROM "BackfillSchedule";\n' +
-          'DELETE FROM "FailureNotificationSetting";\n',
+          'DELETE FROM "FailureNotificationSetting";\n' +
+          // PendingRuleSend + RuleEvaluationState cascade from AutomationRule,
+          // but keep DELETE explicit so a fresh DB without rules still wipes
+          // deterministically.
+          'DELETE FROM "PendingRuleSend";\n' +
+          'DELETE FROM "RuleEvaluationState";\n' +
+          'DELETE FROM "AutomationRule";\n',
         env: { ...process.env, DATABASE_URL: dbUrl },
         stdio: ['pipe', 'ignore', 'inherit'],
       },
