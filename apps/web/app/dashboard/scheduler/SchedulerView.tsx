@@ -1,17 +1,19 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import {
-  AlertCircle,
-  CalendarClock,
-  CheckCircle2,
-  Send,
-  Trash2,
-} from 'lucide-react';
+import { useForm, type UseFormReturn } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useQueryState, parseAsStringEnum } from 'nuqs';
+import { CalendarClock, Send, Trash2 } from 'lucide-react';
 import {
   Button,
   Card,
   EmailChipInput,
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormMessage,
   Select,
   SelectContent,
   SelectItem,
@@ -28,6 +30,14 @@ import {
   toast,
   useConfirm,
 } from '@vera/ui';
+import {
+  dailyScheduleSchema,
+  monthlyScheduleSchema,
+  weeklyScheduleSchema,
+  type DailyScheduleValues,
+  type MonthlyScheduleValues,
+  type WeeklyScheduleValues,
+} from '@vera/types';
 import { DataSyncSection } from './DataSyncSection';
 
 /**
@@ -48,19 +58,15 @@ import { DataSyncSection } from './DataSyncSection';
  * The server `Schedule` table is the single source of truth (one row per
  * tenantId+cadence, enforced by a unique index). localStorage only
  * buffers in-flight form edits across reloads.
+ *
+ * Form state: React Hook Form + Zod (`@vera/types` schedule schemas). Three
+ * `useForm` instances — one per cadence — so each cadence's save is
+ * independent and each cadence carries its own validation state.
  */
 
 type ReportId = 'daily' | 'weekly' | 'monthly';
 
 const RECIPIENTS_CAP = 6;
-
-type ReportConfig = {
-  id: ReportId;
-  recipients: string[];
-  time: string; // 24-hour HH:mm
-  /** Weekly: 0=Sun..6=Sat. Monthly: 'last' or '1'..'28' or 'last-business'. */
-  cadenceValue?: string;
-};
 
 type ServerSchedule = {
   id: number;
@@ -84,32 +90,49 @@ type HighlightId =
   | 'paid-off'
   | 'new-rep';
 
-type SchedulerState = {
-  reports: Record<ReportId, ReportConfig>;
+type StoredForms = {
+  daily: DailyScheduleValues;
+  weekly: WeeklyScheduleValues;
+  monthly: MonthlyScheduleValues;
+};
+
+type SchedulerStorage = {
+  forms: StoredForms;
   highlights: Record<HighlightId, boolean>;
 };
 
 const STORAGE_KEY = 'vera-scheduler-v2';
 
-const DEFAULT_STATE: SchedulerState = {
-  reports: {
-    daily: { id: 'daily', recipients: [], time: '08:00' },
-    weekly: { id: 'weekly', recipients: [], time: '09:00', cadenceValue: '1' },
-    monthly: {
-      id: 'monthly',
-      recipients: [],
-      time: '17:00',
-      cadenceValue: 'last',
-    },
+const DEFAULT_FORMS: StoredForms = {
+  daily: {
+    cadence: 'daily',
+    timeLocal: '08:00',
+    recipients: [],
+    enabled: true,
   },
-  highlights: {
-    'bucket-change': true,
-    'heat-band-change': true,
-    'category-change': true,
-    'new-anomaly': true,
-    'paid-off': true,
-    'new-rep': true,
+  weekly: {
+    cadence: 'weekly',
+    dayOfWeek: 1,
+    timeLocal: '09:00',
+    recipients: [],
+    enabled: true,
   },
+  monthly: {
+    cadence: 'monthly',
+    dayOfMonth: 'last',
+    timeLocal: '17:00',
+    recipients: [],
+    enabled: true,
+  },
+};
+
+const DEFAULT_HIGHLIGHTS: Record<HighlightId, boolean> = {
+  'bucket-change': true,
+  'heat-band-change': true,
+  'category-change': true,
+  'new-anomaly': true,
+  'paid-off': true,
+  'new-rep': true,
 };
 
 const REPORT_META: Record<
@@ -133,39 +156,6 @@ const REPORT_META: Record<
   },
 };
 
-const HIGHLIGHT_META: Array<{ id: HighlightId; label: string; hint: string }> = [
-  {
-    id: 'bucket-change',
-    label: 'Job moved between aging buckets',
-    hint: "e.g. within-terms → 1–30 past, or 31–60 → 60+",
-  },
-  {
-    id: 'heat-band-change',
-    label: 'Heat score band changed',
-    hint: 'cool / warm / hot / critical transitions',
-  },
-  {
-    id: 'category-change',
-    label: 'Job category changed',
-    hint: 'Insurance ↔ retail, residential ↔ commercial',
-  },
-  {
-    id: 'new-anomaly',
-    label: 'New anomaly flagged',
-    hint: 'Any of the nine anomaly rules tripping for the first time',
-  },
-  {
-    id: 'paid-off',
-    label: 'Job paid off',
-    hint: 'Balance dropped to zero — the job left the AR set',
-  },
-  {
-    id: 'new-rep',
-    label: 'New rep assigned',
-    hint: 'Ownership change since the last run',
-  },
-];
-
 const DAY_OF_WEEK_OPTIONS = [
   { value: '1', label: 'Mondays' },
   { value: '2', label: 'Tuesdays' },
@@ -183,54 +173,8 @@ const DAY_OF_MONTH_OPTIONS = [
   { value: 'last', label: 'Last day of the month' },
 ];
 
-function migrateReport(
-  base: ReportConfig,
-  raw: Partial<ReportConfig> & { recipient?: string },
-): ReportConfig {
-  const recipients = Array.isArray(raw.recipients)
-    ? raw.recipients.filter((s): s is string => typeof s === 'string' && s.length > 0)
-    : typeof raw.recipient === 'string' && raw.recipient.length > 0
-      ? [raw.recipient]
-      : base.recipients;
-  return {
-    ...base,
-    ...raw,
-    recipients,
-  };
-}
-
-function loadState(): SchedulerState {
-  if (typeof window === 'undefined') return DEFAULT_STATE;
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return DEFAULT_STATE;
-    const parsed = JSON.parse(raw);
-    return {
-      reports: {
-        daily: migrateReport(DEFAULT_STATE.reports.daily, parsed.reports?.daily ?? {}),
-        weekly: migrateReport(DEFAULT_STATE.reports.weekly, parsed.reports?.weekly ?? {}),
-        monthly: migrateReport(DEFAULT_STATE.reports.monthly, parsed.reports?.monthly ?? {}),
-      },
-      highlights: { ...DEFAULT_STATE.highlights, ...(parsed.highlights ?? {}) },
-    };
-  } catch {
-    return DEFAULT_STATE;
-  }
-}
-
-function saveState(state: SchedulerState): void {
-  if (typeof window === 'undefined') return;
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-}
-
 function isValidEmail(s: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
-}
-
-function recipientsValid(list: readonly string[]): boolean {
-  if (list.length === 0) return false;
-  if (list.length > RECIPIENTS_CAP) return false;
-  return list.every(isValidEmail);
 }
 
 function recipientsEqual(a: readonly string[], b: readonly string[]): boolean {
@@ -249,31 +193,141 @@ function summarizeRecipients(list: readonly string[]): string {
   return `${first} + ${rest.length} more`;
 }
 
-function reportFromServer(row: ServerSchedule): ReportConfig {
+function loadStorage(): SchedulerStorage {
+  if (typeof window === 'undefined') {
+    return { forms: DEFAULT_FORMS, highlights: DEFAULT_HIGHLIGHTS };
+  }
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return { forms: DEFAULT_FORMS, highlights: DEFAULT_HIGHLIGHTS };
+    const parsed = JSON.parse(raw) as Partial<SchedulerStorage> & {
+      // v1 schema fallback — the previous shape was { reports, highlights }
+      // with `reports[id] = { time, recipients, cadenceValue }`. Migrate
+      // through best-effort so the user's draft survives the upgrade.
+      reports?: Record<
+        ReportId,
+        { time?: string; recipients?: string[]; cadenceValue?: string }
+      >;
+    };
+
+    if (parsed.forms) {
+      // v2 shape: trust it as long as the fields look right.
+      const f = parsed.forms;
+      return {
+        forms: {
+          daily: { ...DEFAULT_FORMS.daily, ...f.daily, cadence: 'daily' },
+          weekly: { ...DEFAULT_FORMS.weekly, ...f.weekly, cadence: 'weekly' },
+          monthly: { ...DEFAULT_FORMS.monthly, ...f.monthly, cadence: 'monthly' },
+        },
+        highlights: { ...DEFAULT_HIGHLIGHTS, ...(parsed.highlights ?? {}) },
+      };
+    }
+
+    // v1 fallback: migrate the old { reports } shape into the new forms shape.
+    if (parsed.reports) {
+      const daily = parsed.reports.daily ?? {};
+      const weekly = parsed.reports.weekly ?? {};
+      const monthly = parsed.reports.monthly ?? {};
+      const dowRaw = weekly.cadenceValue ?? '1';
+      const dowNum = Number.parseInt(dowRaw, 10);
+      return {
+        forms: {
+          daily: {
+            cadence: 'daily',
+            timeLocal: daily.time ?? DEFAULT_FORMS.daily.timeLocal,
+            recipients: Array.isArray(daily.recipients) ? daily.recipients : [],
+            enabled: true,
+          },
+          weekly: {
+            cadence: 'weekly',
+            dayOfWeek: Number.isFinite(dowNum) ? dowNum : 1,
+            timeLocal: weekly.time ?? DEFAULT_FORMS.weekly.timeLocal,
+            recipients: Array.isArray(weekly.recipients) ? weekly.recipients : [],
+            enabled: true,
+          },
+          monthly: {
+            cadence: 'monthly',
+            dayOfMonth:
+              (monthly.cadenceValue as MonthlyScheduleValues['dayOfMonth']) ??
+              DEFAULT_FORMS.monthly.dayOfMonth,
+            timeLocal: monthly.time ?? DEFAULT_FORMS.monthly.timeLocal,
+            recipients: Array.isArray(monthly.recipients)
+              ? monthly.recipients
+              : [],
+            enabled: true,
+          },
+        },
+        highlights: { ...DEFAULT_HIGHLIGHTS, ...(parsed.highlights ?? {}) },
+      };
+    }
+
+    return { forms: DEFAULT_FORMS, highlights: DEFAULT_HIGHLIGHTS };
+  } catch {
+    return { forms: DEFAULT_FORMS, highlights: DEFAULT_HIGHLIGHTS };
+  }
+}
+
+function saveStorage(storage: SchedulerStorage): void {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(storage));
+}
+
+function dailyFromServer(row: ServerSchedule): DailyScheduleValues {
   return {
-    id: row.cadence,
+    cadence: 'daily',
+    timeLocal: row.timeLocal,
     recipients: row.recipients,
-    time: row.timeLocal,
-    cadenceValue:
-      row.cadence === 'weekly'
-        ? String(row.dayOfWeek ?? 1)
-        : row.cadence === 'monthly'
-          ? row.dayOfMonth ?? 'last'
-          : undefined,
+    enabled: row.enabled,
   };
 }
 
-/** True iff the user's form differs from the saved server row. */
-function isDirty(form: ReportConfig, server: ServerSchedule): boolean {
+function weeklyFromServer(row: ServerSchedule): WeeklyScheduleValues {
+  return {
+    cadence: 'weekly',
+    dayOfWeek: row.dayOfWeek ?? 1,
+    timeLocal: row.timeLocal,
+    recipients: row.recipients,
+    enabled: row.enabled,
+  };
+}
+
+function monthlyFromServer(row: ServerSchedule): MonthlyScheduleValues {
+  return {
+    cadence: 'monthly',
+    dayOfMonth:
+      (row.dayOfMonth as MonthlyScheduleValues['dayOfMonth'] | null) ??
+      'last',
+    timeLocal: row.timeLocal,
+    recipients: row.recipients,
+    enabled: row.enabled,
+  };
+}
+
+/** True iff the form values diverge from the saved server row. */
+function isDailyDirty(
+  form: DailyScheduleValues,
+  server: ServerSchedule,
+): boolean {
   if (!recipientsEqual(form.recipients, server.recipients)) return true;
-  if (form.time !== server.timeLocal) return true;
-  if (form.id === 'weekly') {
-    const serverDow = server.dayOfWeek === null ? null : String(server.dayOfWeek);
-    if ((form.cadenceValue ?? null) !== serverDow) return true;
-  }
-  if (form.id === 'monthly') {
-    if ((form.cadenceValue ?? null) !== (server.dayOfMonth ?? null)) return true;
-  }
+  if (form.timeLocal !== server.timeLocal) return true;
+  return false;
+}
+function isWeeklyDirty(
+  form: WeeklyScheduleValues,
+  server: ServerSchedule,
+): boolean {
+  if (!recipientsEqual(form.recipients, server.recipients)) return true;
+  if (form.timeLocal !== server.timeLocal) return true;
+  if (form.dayOfWeek !== (server.dayOfWeek ?? 1)) return true;
+  return false;
+}
+function isMonthlyDirty(
+  form: MonthlyScheduleValues,
+  server: ServerSchedule,
+): boolean {
+  if (!recipientsEqual(form.recipients, server.recipients)) return true;
+  if (form.timeLocal !== server.timeLocal) return true;
+  if (form.dayOfMonth !== (server.dayOfMonth ?? 'last')) return true;
   return false;
 }
 
@@ -314,8 +368,16 @@ function tzAbbreviation(timezone: string): string {
   }
 }
 
+type TabValue = 'report' | 'sync' | 'automation';
+
 export function SchedulerView() {
-  const [state, setState] = useState<SchedulerState>(DEFAULT_STATE);
+  const [tab, setTab] = useQueryState(
+    'tab',
+    parseAsStringEnum<TabValue>(['report', 'sync', 'automation']).withDefault(
+      'report',
+    ),
+  );
+
   const [hydrated, setHydrated] = useState(false);
   const [timezone, setTimezone] = useState(SSR_FALLBACK_TIMEZONE);
   // `false` until the first /api/schedules response lands. Drives the
@@ -325,11 +387,9 @@ export function SchedulerView() {
   const [serverRowsLoaded, setServerRowsLoaded] = useState(false);
   // Server-known schedules. `null` means "no row" — that's state A for
   // that cadence. The form-vs-server diff drives every visible affordance.
-  const [serverRows, setServerRows] = useState<Record<ReportId, ServerSchedule | null>>({
-    daily: null,
-    weekly: null,
-    monthly: null,
-  });
+  const [serverRows, setServerRows] = useState<
+    Record<ReportId, ServerSchedule | null>
+  >({ daily: null, weekly: null, monthly: null });
   const [outcomes, setOutcomes] = useState<Record<ReportId, SendOutcome>>({
     daily: { kind: 'idle' },
     weekly: { kind: 'idle' },
@@ -342,11 +402,89 @@ export function SchedulerView() {
     weekly: { kind: 'idle' },
     monthly: { kind: 'idle' },
   });
+  // Highlights stay as `useState` (no save action — toggling persists to
+  // localStorage on the spot). See A-3 plan §3c decision criterion.
+  const [highlights, setHighlights] = useState<Record<HighlightId, boolean>>(
+    DEFAULT_HIGHLIGHTS,
+  );
   const confirm = useConfirm();
 
+  // One RHF instance per cadence. The discriminated-union schema means each
+  // form's values include its `cadence` literal; using the cadence-specific
+  // schemas individually keeps TypeScript narrowing tight in each handler.
+  const dailyForm = useForm<DailyScheduleValues>({
+    resolver: zodResolver(dailyScheduleSchema),
+    mode: 'onChange',
+    defaultValues: DEFAULT_FORMS.daily,
+  });
+  const weeklyForm = useForm<WeeklyScheduleValues>({
+    resolver: zodResolver(weeklyScheduleSchema),
+    mode: 'onChange',
+    defaultValues: DEFAULT_FORMS.weekly,
+  });
+  const monthlyForm = useForm<MonthlyScheduleValues>({
+    resolver: zodResolver(monthlyScheduleSchema),
+    mode: 'onChange',
+    defaultValues: DEFAULT_FORMS.monthly,
+  });
+
+  // Persist every form change to localStorage as a draft buffer. Server is
+  // still source of truth on mount — local values are only a fallback if the
+  // network blip.
   useEffect(() => {
-    const local = loadState();
-    setState(local);
+    const sub = dailyForm.watch((values) => {
+      const storage: SchedulerStorage = {
+        forms: {
+          daily: values as DailyScheduleValues,
+          weekly: weeklyForm.getValues(),
+          monthly: monthlyForm.getValues(),
+        },
+        highlights,
+      };
+      saveStorage(storage);
+    });
+    return () => sub.unsubscribe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dailyForm, weeklyForm, monthlyForm, highlights]);
+  useEffect(() => {
+    const sub = weeklyForm.watch((values) => {
+      const storage: SchedulerStorage = {
+        forms: {
+          daily: dailyForm.getValues(),
+          weekly: values as WeeklyScheduleValues,
+          monthly: monthlyForm.getValues(),
+        },
+        highlights,
+      };
+      saveStorage(storage);
+    });
+    return () => sub.unsubscribe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dailyForm, weeklyForm, monthlyForm, highlights]);
+  useEffect(() => {
+    const sub = monthlyForm.watch((values) => {
+      const storage: SchedulerStorage = {
+        forms: {
+          daily: dailyForm.getValues(),
+          weekly: weeklyForm.getValues(),
+          monthly: values as MonthlyScheduleValues,
+        },
+        highlights,
+      };
+      saveStorage(storage);
+    });
+    return () => sub.unsubscribe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dailyForm, weeklyForm, monthlyForm, highlights]);
+
+  useEffect(() => {
+    const local = loadStorage();
+    // Seed each form from the localStorage draft (if any) before the server
+    // fetch resolves.
+    dailyForm.reset(local.forms.daily);
+    weeklyForm.reset(local.forms.weekly);
+    monthlyForm.reset(local.forms.monthly);
+    setHighlights(local.highlights);
     setTimezone(resolveTimezone());
     setHydrated(true);
 
@@ -366,59 +504,45 @@ export function SchedulerView() {
           if (row.cadence in byCadence) byCadence[row.cadence] = row;
         }
         setServerRows(byCadence);
-        // For cadences that have a server row, server wins over localStorage.
-        // For cadences without one, leave the local draft alone (user may
-        // have been typing).
-        setState((prev) => {
-          const next = { ...prev, reports: { ...prev.reports } };
-          for (const id of ['daily', 'weekly', 'monthly'] as ReportId[]) {
-            const row = byCadence[id];
-            if (row) next.reports[id] = reportFromServer(row);
-          }
-          saveState(next);
-          return next;
-        });
+        // Server wins over localStorage for any cadence with a row
+        // (CLAUDE.md rule #10).
+        if (byCadence.daily) dailyForm.reset(dailyFromServer(byCadence.daily));
+        if (byCadence.weekly) weeklyForm.reset(weeklyFromServer(byCadence.weekly));
+        if (byCadence.monthly)
+          monthlyForm.reset(monthlyFromServer(byCadence.monthly));
       } catch {
         /* network blip — leave the form on localStorage values */
       } finally {
-        // Flip serverRowsLoaded once — drives the skeleton-off transition
-        // for every cadence row. If the fetch failed entirely, we still
-        // flip so the page doesn't sit on skeletons forever; the user
-        // sees state A everywhere and can save fresh.
         if (!cancelled) setServerRowsLoaded(true);
       }
     })();
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  function update(next: SchedulerState) {
-    setState(next);
-    saveState(next);
-  }
-
-  function updateReport(id: ReportId, patch: Partial<ReportConfig>) {
-    update({
-      ...state,
-      reports: {
-        ...state.reports,
-        [id]: { ...state.reports[id], ...patch },
-      },
-    });
-  }
-
   function toggleHighlight(id: HighlightId, on: boolean) {
-    update({
-      ...state,
-      highlights: { ...state.highlights, [id]: on },
+    setHighlights((prev) => {
+      const next = { ...prev, [id]: on };
+      saveStorage({
+        forms: {
+          daily: dailyForm.getValues(),
+          weekly: weeklyForm.getValues(),
+          monthly: monthlyForm.getValues(),
+        },
+        highlights: next,
+      });
+      return next;
     });
   }
+  // Keep toggleHighlight referenced even when the highlights section is
+  // hidden so a future flip doesn't ship dead code.
+  void toggleHighlight;
 
-  async function sendNow(id: ReportId) {
-    const cfg = state.reports[id];
+  async function sendNow(id: ReportId, recipients: string[]) {
     const briefTitle = REPORT_META[id].title;
-    if (!recipientsValid(cfg.recipients)) {
+    if (recipients.length === 0 || !recipients.every(isValidEmail)) {
       toast.error(`Couldn't send the ${briefTitle}`, {
         description: 'Add at least one valid recipient first.',
       });
@@ -429,7 +553,7 @@ export function SchedulerView() {
       const res = await fetch('/api/brief/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to: cfg.recipients, cadence: id }),
+        body: JSON.stringify({ to: recipients, cadence: id }),
       });
       const json = await res.json();
       if (!res.ok) {
@@ -439,7 +563,7 @@ export function SchedulerView() {
         });
         return;
       }
-      const sentTo: string[] = Array.isArray(json.to) ? json.to : cfg.recipients;
+      const sentTo: string[] = Array.isArray(json.to) ? json.to : recipients;
       setOutcomes((o) => ({
         ...o,
         [id]: {
@@ -460,41 +584,23 @@ export function SchedulerView() {
     }
   }
 
-  /**
-   * Persist the form to the server. Creates the row in state A or rewrites
-   * it in B/C. Always preserves the current `enabled` state — the switch
-   * owns that flag, not the form.
-   */
-  async function saveSchedule(id: ReportId) {
-    const cfg = state.reports[id];
+  type SaveBody = {
+    timeLocal: string;
+    timezone: string;
+    recipients: string[];
+    enabled: boolean;
+    dayOfWeek?: number;
+    dayOfMonth?: MonthlyScheduleValues['dayOfMonth'];
+  };
+
+  async function saveSchedule(id: ReportId, body: SaveBody) {
     const briefTitle = REPORT_META[id].title;
-    if (!recipientsValid(cfg.recipients)) {
-      toast.error(`Couldn't save the ${briefTitle}`, {
-        description: 'Add at least one valid recipient first.',
-      });
-      return;
-    }
-
-    const dayOfWeek =
-      id === 'weekly' && cfg.cadenceValue !== undefined
-        ? Number(cfg.cadenceValue)
-        : null;
-    const dayOfMonth = id === 'monthly' ? cfg.cadenceValue ?? null : null;
-    const enabled = serverRows[id]?.enabled ?? true;
-
     setScheduleOutcomes((o) => ({ ...o, [id]: { kind: 'pending' } }));
     try {
       const res = await fetch(`/api/schedules/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          dayOfWeek,
-          dayOfMonth,
-          timeLocal: cfg.time,
-          timezone,
-          recipients: cfg.recipients,
-          enabled,
-        }),
+        body: JSON.stringify(body),
       });
       const json = await res.json();
       if (!res.ok) {
@@ -509,6 +615,11 @@ export function SchedulerView() {
       }
       const saved: ServerSchedule = json.schedule;
       setServerRows((rows) => ({ ...rows, [id]: saved }));
+      // Re-seed the form from the saved server row — covers the case where
+      // the server snapped the time to a 15-minute grid.
+      if (id === 'daily') dailyForm.reset(dailyFromServer(saved));
+      if (id === 'weekly') weeklyForm.reset(weeklyFromServer(saved));
+      if (id === 'monthly') monthlyForm.reset(monthlyFromServer(saved));
       setScheduleOutcomes((o) => ({
         ...o,
         [id]: { kind: 'saved', nextRunAt: saved.nextRunAt ?? '' },
@@ -526,6 +637,33 @@ export function SchedulerView() {
     }
   }
 
+  async function onSubmitDaily(values: DailyScheduleValues) {
+    await saveSchedule('daily', {
+      timeLocal: values.timeLocal,
+      timezone,
+      recipients: values.recipients,
+      enabled: serverRows.daily?.enabled ?? values.enabled,
+    });
+  }
+  async function onSubmitWeekly(values: WeeklyScheduleValues) {
+    await saveSchedule('weekly', {
+      timeLocal: values.timeLocal,
+      timezone,
+      recipients: values.recipients,
+      enabled: serverRows.weekly?.enabled ?? values.enabled,
+      dayOfWeek: values.dayOfWeek,
+    });
+  }
+  async function onSubmitMonthly(values: MonthlyScheduleValues) {
+    await saveSchedule('monthly', {
+      timeLocal: values.timeLocal,
+      timezone,
+      recipients: values.recipients,
+      enabled: serverRows.monthly?.enabled ?? values.enabled,
+      dayOfMonth: values.dayOfMonth,
+    });
+  }
+
   /**
    * Flip enabled on the existing server row. Optimistic: update the local
    * `serverRows` view immediately so the switch + pill move together; on
@@ -539,17 +677,22 @@ export function SchedulerView() {
     setServerRows((rows) => ({ ...rows, [id]: optimistic }));
     setScheduleOutcomes((o) => ({ ...o, [id]: { kind: 'pending' } }));
     try {
+      const body: SaveBody = {
+        timeLocal: row.timeLocal,
+        timezone: row.timezone,
+        recipients: row.recipients,
+        enabled: nextEnabled,
+      };
+      if (id === 'weekly') body.dayOfWeek = row.dayOfWeek ?? 1;
+      if (id === 'monthly')
+        body.dayOfMonth =
+          (row.dayOfMonth as MonthlyScheduleValues['dayOfMonth'] | null) ??
+          'last';
+
       const res = await fetch(`/api/schedules/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          dayOfWeek: row.dayOfWeek,
-          dayOfMonth: row.dayOfMonth,
-          timeLocal: row.timeLocal,
-          timezone: row.timezone,
-          recipients: row.recipients,
-          enabled: nextEnabled,
-        }),
+        body: JSON.stringify(body),
       });
       const json = await res.json();
       const briefTitle = REPORT_META[id].title;
@@ -566,6 +709,9 @@ export function SchedulerView() {
       }
       const saved: ServerSchedule = json.schedule;
       setServerRows((rows) => ({ ...rows, [id]: saved }));
+      if (id === 'daily') dailyForm.reset(dailyFromServer(saved));
+      if (id === 'weekly') weeklyForm.reset(weeklyFromServer(saved));
+      if (id === 'monthly') monthlyForm.reset(monthlyFromServer(saved));
       setScheduleOutcomes((o) => ({
         ...o,
         [id]: nextEnabled
@@ -613,6 +759,11 @@ export function SchedulerView() {
         return;
       }
       setServerRows((rows) => ({ ...rows, [id]: null }));
+      // Reset the form back to defaults so the next "Schedule" press starts
+      // clean rather than re-saving the just-removed row.
+      if (id === 'daily') dailyForm.reset(DEFAULT_FORMS.daily);
+      if (id === 'weekly') weeklyForm.reset(DEFAULT_FORMS.weekly);
+      if (id === 'monthly') monthlyForm.reset(DEFAULT_FORMS.monthly);
       setScheduleOutcomes((o) => ({ ...o, [id]: { kind: 'removed' } }));
       toast.success(`${briefTitle} schedule removed`);
     } catch (e) {
@@ -625,7 +776,6 @@ export function SchedulerView() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-10">
-
       {/* Header */}
       <header className="vera-rise space-y-3">
         <p className="text-text-muted text-xs tracking-[0.2em] uppercase">
@@ -642,86 +792,134 @@ export function SchedulerView() {
         </p>
       </header>
 
-      <Tabs defaultValue="reports" name="scheduler" className="vera-rise-delay-1 gap-6">
+      <Tabs
+        value={tab}
+        onValueChange={(v) => setTab(v as TabValue)}
+        name="scheduler"
+        className="vera-rise-delay-1 gap-6"
+      >
         <TabsList aria-label="Scheduler sections">
-          <Tab value="reports">Reports</Tab>
-          <Tab value="data-sync">Data sync</Tab>
+          <Tab value="report">Reports</Tab>
+          <Tab value="sync">Data sync</Tab>
+          <Tab value="automation">Automation</Tab>
         </TabsList>
 
-        <TabsContent value="reports" className="space-y-4 pt-6">
+        <TabsContent value="report" className="space-y-4 pt-6">
           <p className="text-text-muted text-xs">3 cadences available</p>
-          {(['daily', 'weekly', 'monthly'] as ReportId[]).map((id) =>
-            serverRowsLoaded ? (
-              <ReportRow
-                key={id}
-                report={state.reports[id]}
-                serverRow={serverRows[id]}
-                outcome={outcomes[id]}
-                scheduleOutcome={scheduleOutcomes[id]}
+          {serverRowsLoaded ? (
+            <>
+              <DailyReportRow
+                form={dailyForm}
+                serverRow={serverRows.daily}
+                outcome={outcomes.daily}
+                scheduleOutcome={scheduleOutcomes.daily}
                 hydrated={hydrated}
                 timezone={timezone}
-                onChange={(patch) => updateReport(id, patch)}
-                onSendNow={() => sendNow(id)}
-                onSave={() => saveSchedule(id)}
-                onToggleEnabled={(v) => setEnabled(id, v)}
-                onRemove={() => removeSchedule(id)}
+                onSendNow={(recipients) => sendNow('daily', recipients)}
+                onSubmit={onSubmitDaily}
+                onToggleEnabled={(v) => setEnabled('daily', v)}
+                onRemove={() => removeSchedule('daily')}
               />
-            ) : (
+              <WeeklyReportRow
+                form={weeklyForm}
+                serverRow={serverRows.weekly}
+                outcome={outcomes.weekly}
+                scheduleOutcome={scheduleOutcomes.weekly}
+                hydrated={hydrated}
+                timezone={timezone}
+                onSendNow={(recipients) => sendNow('weekly', recipients)}
+                onSubmit={onSubmitWeekly}
+                onToggleEnabled={(v) => setEnabled('weekly', v)}
+                onRemove={() => removeSchedule('weekly')}
+              />
+              <MonthlyReportRow
+                form={monthlyForm}
+                serverRow={serverRows.monthly}
+                outcome={outcomes.monthly}
+                scheduleOutcome={scheduleOutcomes.monthly}
+                hydrated={hydrated}
+                timezone={timezone}
+                onSendNow={(recipients) => sendNow('monthly', recipients)}
+                onSubmit={onSubmitMonthly}
+                onToggleEnabled={(v) => setEnabled('monthly', v)}
+                onRemove={() => removeSchedule('monthly')}
+              />
+            </>
+          ) : (
+            (['daily', 'weekly', 'monthly'] as ReportId[]).map((id) => (
               <ReportRowSkeleton key={id} cadence={id} />
-            ),
+            ))
           )}
         </TabsContent>
 
-        <TabsContent value="data-sync" className="space-y-4 pt-6">
+        <TabsContent value="sync" className="space-y-4 pt-6">
           <DataSyncSection />
         </TabsContent>
-      </Tabs>
 
-      {/*
-        "What gets highlighted" section is hidden until the underlying
-        highlight rule engine is implemented — today it's UI-only sugar with
-        no effect on the actual email/PDF output. State + persistence remain
-        in place so we can resurface it once the diff engine ships.
-      */}
+        <TabsContent value="automation" className="space-y-4 pt-6">
+          <Card>
+            <div className="space-y-2">
+              <h3 className="font-display text-lg tracking-tight sm:text-xl">
+                Automation rules
+              </h3>
+              <p className="text-text-secondary text-sm leading-relaxed">
+                Coming in B-5 — rule-based emails that watch AR metrics for
+                threshold transitions and propose sends for human approval.
+              </p>
+            </div>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
 
-function ReportRow({
-  report,
+/* ============================================================================
+ * Per-cadence row components. Each owns its own RHF form; the parent passes
+ * the form instance in so the parent's submit handler (which knows the
+ * timezone) can run.
+ * ========================================================================== */
+
+type SendOutcomeForRow = SendOutcome;
+
+function ReportRowChrome({
+  reportId,
   serverRow,
   outcome,
   scheduleOutcome,
   hydrated,
   timezone,
-  onChange,
-  onSendNow,
-  onSave,
+  cadenceLine,
+  recipients,
+  saveDisabled,
+  saveLabel,
+  isSubmitting,
   onToggleEnabled,
   onRemove,
+  onSendNow,
+  children,
 }: {
-  report: ReportConfig;
+  reportId: ReportId;
   serverRow: ServerSchedule | null;
-  outcome: SendOutcome;
+  outcome: SendOutcomeForRow;
   scheduleOutcome: ScheduleOutcome;
   hydrated: boolean;
   timezone: string;
-  onChange: (patch: Partial<ReportConfig>) => void;
-  onSendNow: () => void;
-  onSave: () => void;
+  cadenceLine: string;
+  recipients: string[];
+  saveDisabled: boolean;
+  saveLabel: string;
+  isSubmitting: boolean;
   onToggleEnabled: (next: boolean) => void;
   onRemove: () => void;
+  onSendNow: (recipients: string[]) => void;
+  children: React.ReactNode;
 }) {
-  const meta = REPORT_META[report.id];
-  const tzLabel = tzAbbreviation(timezone);
-  const cadenceLine = describeCadence(report, tzLabel);
-  const allRecipientsParse = report.recipients.every(isValidEmail);
-  const hasRecipient = report.recipients.length > 0;
+  const meta = REPORT_META[reportId];
+  const allRecipientsParse = recipients.every(isValidEmail);
+  const hasRecipient = recipients.length > 0;
   const recipientsOk = hasRecipient && allRecipientsParse;
 
-  // Status pill follows server state. State A = "Not scheduled"; otherwise
-  // "Scheduled" or "Paused" depending on `enabled` on the row. The pill is
-  // single-purpose: "what will the cron worker do right now?".
   let statusLabel: string;
   let statusActive: boolean;
   if (!serverRow) {
@@ -737,23 +935,7 @@ function ReportRow({
 
   const hasServerRow = serverRow !== null;
   const isPaused = hasServerRow && !serverRow.enabled;
-  // Dimmed body for paused rows — at-a-glance signal that this isn't live.
   const dimBodyClass = isPaused ? 'opacity-60' : '';
-
-  // Save-button enablement. State A: at least one valid recipient. State B/C:
-  // only when the form has actually diverged from the server row.
-  const dirty = serverRow ? isDirty(report, serverRow) : true;
-  const saveDisabled =
-    !recipientsOk ||
-    scheduleOutcome.kind === 'pending' ||
-    (hasServerRow && !dirty);
-
-  const saveLabel = (() => {
-    if (scheduleOutcome.kind === 'pending') {
-      return hasServerRow ? 'Saving…' : 'Scheduling…';
-    }
-    return hasServerRow ? 'Save changes' : 'Schedule';
-  })();
 
   return (
     <Card>
@@ -766,7 +948,9 @@ function ReportRow({
             </div>
             <div className="space-y-1">
               <div className="flex flex-wrap items-center gap-2">
-                <h3 className="font-display text-lg tracking-tight sm:text-xl">{meta.title}</h3>
+                <h3 className="font-display text-lg tracking-tight sm:text-xl">
+                  {meta.title}
+                </h3>
                 <span
                   className={
                     statusActive
@@ -796,8 +980,6 @@ function ReportRow({
             </div>
           </div>
 
-          {/* Switch only appears once there's something to pause. In state A
-              it would be meaningless — there's no row yet. */}
           {hasServerRow ? (
             <div className="flex flex-col items-end gap-1">
               <Switch
@@ -819,73 +1001,11 @@ function ReportRow({
           ) : null}
         </div>
 
-        {/* Editable body. Dimmed when paused so an operator scanning the
-            page can see at a glance what's live. */}
         <div className={`space-y-5 transition-opacity ${dimBodyClass}`}>
-          {/* Cadence + time row — daily is single-column, weekly/monthly
-              add the day-of-week / day-of-month picker so this is two
-              columns. Recipients moved to its own row below so the chip
-              input always gets full card width. */}
-          <div
-            className={`border-border bg-bg-base/40 grid grid-cols-1 gap-4 rounded-2xl border p-4 ${
-              report.id === 'daily' ? '' : 'md:grid-cols-2'
-            }`}
-          >
-            {report.id === 'weekly' ? (
-              <Field label="Day of week">
-                <ShadcnSelect
-                  value={report.cadenceValue ?? '1'}
-                  onChange={(v) => onChange({ cadenceValue: v })}
-                  options={DAY_OF_WEEK_OPTIONS}
-                  ariaLabel="Day of week"
-                />
-              </Field>
-            ) : null}
-            {report.id === 'monthly' ? (
-              <Field label="Day of month">
-                <ShadcnSelect
-                  value={report.cadenceValue ?? 'last'}
-                  onChange={(v) => onChange({ cadenceValue: v })}
-                  options={DAY_OF_MONTH_OPTIONS}
-                  ariaLabel="Day of month"
-                />
-              </Field>
-            ) : null}
+          {children}
 
-            <Field label="Time (your local time)">
-              <TimePicker
-                value={report.time}
-                onChange={(v) => onChange({ time: v })}
-                ariaLabel={`Time for ${REPORT_META[report.id].title}`}
-              />
-            </Field>
-          </div>
-
-          {/* Recipients row — full width so chips always have room to
-              breathe, matching the Data sync section's notification block. */}
-          <div className="border-border bg-bg-base/40 space-y-1.5 rounded-2xl border p-4">
-            <label className="text-text-muted text-[0.65rem] tracking-[0.2em] uppercase">
-              Recipients
-            </label>
-            <p className="text-text-secondary text-xs">
-              Everyone listed here gets this brief when it sends.
-            </p>
-            <EmailChipInput
-              value={report.recipients}
-              onChange={(next) => onChange({ recipients: next })}
-              max={RECIPIENTS_CAP}
-              placeholder="gm@yourcompany.com"
-              ariaLabel={`Recipients for ${meta.title}`}
-            />
-          </div>
-
-          {/* Action row */}
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              {/* All transient feedback (sent / saved / paused / resumed /
-                  removed / error) moved to toasts via the global <Toaster>.
-                  See CLAUDE.md hard rule #11: no inline status banners. */}
-            </div>
+            <div className="min-w-0 flex-1" />
             <div className="flex shrink-0 flex-wrap items-center gap-2">
               {hasServerRow ? (
                 <Button
@@ -901,17 +1021,16 @@ function ReportRow({
                 </Button>
               ) : null}
               <Button
-                type="button"
+                type="submit"
                 variant="secondary"
-                onClick={onSave}
-                disabled={saveDisabled}
+                disabled={saveDisabled || isSubmitting}
               >
                 <CalendarClock className="mr-2 h-3.5 w-3.5" />
                 <span className="whitespace-nowrap">{saveLabel}</span>
               </Button>
               <Button
                 type="button"
-                onClick={onSendNow}
+                onClick={() => onSendNow(recipients)}
                 disabled={!recipientsOk || outcome.kind === 'pending'}
               >
                 {outcome.kind === 'pending' ? (
@@ -928,6 +1047,369 @@ function ReportRow({
         </div>
       </div>
     </Card>
+  );
+}
+
+function DailyReportRow({
+  form,
+  serverRow,
+  outcome,
+  scheduleOutcome,
+  hydrated,
+  timezone,
+  onSubmit,
+  onSendNow,
+  onToggleEnabled,
+  onRemove,
+}: {
+  form: UseFormReturn<DailyScheduleValues>;
+  serverRow: ServerSchedule | null;
+  outcome: SendOutcome;
+  scheduleOutcome: ScheduleOutcome;
+  hydrated: boolean;
+  timezone: string;
+  onSubmit: (values: DailyScheduleValues) => Promise<void>;
+  onSendNow: (recipients: string[]) => void;
+  onToggleEnabled: (next: boolean) => void;
+  onRemove: () => void;
+}) {
+  const values = form.watch();
+  const tzLabel = tzAbbreviation(timezone);
+  const cadenceLine = describeDailyCadence(values.timeLocal, tzLabel);
+  const dirty = serverRow ? isDailyDirty(values, serverRow) : true;
+  const saveDisabled =
+    !form.formState.isValid ||
+    scheduleOutcome.kind === 'pending' ||
+    (serverRow !== null && !dirty);
+  const saveLabel = (() => {
+    if (form.formState.isSubmitting || scheduleOutcome.kind === 'pending') {
+      return serverRow ? 'Saving…' : 'Scheduling…';
+    }
+    return serverRow ? 'Save changes' : 'Schedule';
+  })();
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)}>
+        <ReportRowChrome
+          reportId="daily"
+          serverRow={serverRow}
+          outcome={outcome}
+          scheduleOutcome={scheduleOutcome}
+          hydrated={hydrated}
+          timezone={timezone}
+          cadenceLine={cadenceLine}
+          recipients={values.recipients}
+          saveDisabled={saveDisabled}
+          saveLabel={saveLabel}
+          isSubmitting={form.formState.isSubmitting}
+          onToggleEnabled={onToggleEnabled}
+          onRemove={onRemove}
+          onSendNow={onSendNow}
+        >
+          <div className="border-border bg-bg-base/40 grid grid-cols-1 gap-4 rounded-2xl border p-4">
+            <FormField
+              control={form.control}
+              name="timeLocal"
+              render={({ field }) => (
+                <FormItem className="space-y-1.5">
+                  <FieldLabel>Time (your local time)</FieldLabel>
+                  <FormControl>
+                    <TimePicker
+                      value={field.value}
+                      onChange={field.onChange}
+                      ariaLabel="Time for Daily AR brief"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <RecipientsField
+            control={form.control}
+            ariaLabel="Recipients for Daily AR brief"
+          />
+        </ReportRowChrome>
+      </form>
+    </Form>
+  );
+}
+
+function WeeklyReportRow({
+  form,
+  serverRow,
+  outcome,
+  scheduleOutcome,
+  hydrated,
+  timezone,
+  onSubmit,
+  onSendNow,
+  onToggleEnabled,
+  onRemove,
+}: {
+  form: UseFormReturn<WeeklyScheduleValues>;
+  serverRow: ServerSchedule | null;
+  outcome: SendOutcome;
+  scheduleOutcome: ScheduleOutcome;
+  hydrated: boolean;
+  timezone: string;
+  onSubmit: (values: WeeklyScheduleValues) => Promise<void>;
+  onSendNow: (recipients: string[]) => void;
+  onToggleEnabled: (next: boolean) => void;
+  onRemove: () => void;
+}) {
+  const values = form.watch();
+  const tzLabel = tzAbbreviation(timezone);
+  const cadenceLine = describeWeeklyCadence(
+    values.dayOfWeek,
+    values.timeLocal,
+    tzLabel,
+  );
+  const dirty = serverRow ? isWeeklyDirty(values, serverRow) : true;
+  const saveDisabled =
+    !form.formState.isValid ||
+    scheduleOutcome.kind === 'pending' ||
+    (serverRow !== null && !dirty);
+  const saveLabel = (() => {
+    if (form.formState.isSubmitting || scheduleOutcome.kind === 'pending') {
+      return serverRow ? 'Saving…' : 'Scheduling…';
+    }
+    return serverRow ? 'Save changes' : 'Schedule';
+  })();
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)}>
+        <ReportRowChrome
+          reportId="weekly"
+          serverRow={serverRow}
+          outcome={outcome}
+          scheduleOutcome={scheduleOutcome}
+          hydrated={hydrated}
+          timezone={timezone}
+          cadenceLine={cadenceLine}
+          recipients={values.recipients}
+          saveDisabled={saveDisabled}
+          saveLabel={saveLabel}
+          isSubmitting={form.formState.isSubmitting}
+          onToggleEnabled={onToggleEnabled}
+          onRemove={onRemove}
+          onSendNow={onSendNow}
+        >
+          <div className="border-border bg-bg-base/40 grid grid-cols-1 gap-4 rounded-2xl border p-4 md:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="dayOfWeek"
+              render={({ field }) => (
+                <FormItem className="space-y-1.5">
+                  <FieldLabel>Day of week</FieldLabel>
+                  <FormControl>
+                    <ShadcnSelect
+                      value={String(field.value)}
+                      onChange={(v) => field.onChange(Number.parseInt(v, 10))}
+                      options={DAY_OF_WEEK_OPTIONS}
+                      ariaLabel="Day of week"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="timeLocal"
+              render={({ field }) => (
+                <FormItem className="space-y-1.5">
+                  <FieldLabel>Time (your local time)</FieldLabel>
+                  <FormControl>
+                    <TimePicker
+                      value={field.value}
+                      onChange={field.onChange}
+                      ariaLabel="Time for Weekly summary"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <RecipientsField
+            control={form.control}
+            ariaLabel="Recipients for Weekly summary"
+          />
+        </ReportRowChrome>
+      </form>
+    </Form>
+  );
+}
+
+function MonthlyReportRow({
+  form,
+  serverRow,
+  outcome,
+  scheduleOutcome,
+  hydrated,
+  timezone,
+  onSubmit,
+  onSendNow,
+  onToggleEnabled,
+  onRemove,
+}: {
+  form: UseFormReturn<MonthlyScheduleValues>;
+  serverRow: ServerSchedule | null;
+  outcome: SendOutcome;
+  scheduleOutcome: ScheduleOutcome;
+  hydrated: boolean;
+  timezone: string;
+  onSubmit: (values: MonthlyScheduleValues) => Promise<void>;
+  onSendNow: (recipients: string[]) => void;
+  onToggleEnabled: (next: boolean) => void;
+  onRemove: () => void;
+}) {
+  const values = form.watch();
+  const tzLabel = tzAbbreviation(timezone);
+  const cadenceLine = describeMonthlyCadence(
+    values.dayOfMonth,
+    values.timeLocal,
+    tzLabel,
+  );
+  const dirty = serverRow ? isMonthlyDirty(values, serverRow) : true;
+  const saveDisabled =
+    !form.formState.isValid ||
+    scheduleOutcome.kind === 'pending' ||
+    (serverRow !== null && !dirty);
+  const saveLabel = (() => {
+    if (form.formState.isSubmitting || scheduleOutcome.kind === 'pending') {
+      return serverRow ? 'Saving…' : 'Scheduling…';
+    }
+    return serverRow ? 'Save changes' : 'Schedule';
+  })();
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)}>
+        <ReportRowChrome
+          reportId="monthly"
+          serverRow={serverRow}
+          outcome={outcome}
+          scheduleOutcome={scheduleOutcome}
+          hydrated={hydrated}
+          timezone={timezone}
+          cadenceLine={cadenceLine}
+          recipients={values.recipients}
+          saveDisabled={saveDisabled}
+          saveLabel={saveLabel}
+          isSubmitting={form.formState.isSubmitting}
+          onToggleEnabled={onToggleEnabled}
+          onRemove={onRemove}
+          onSendNow={onSendNow}
+        >
+          <div className="border-border bg-bg-base/40 grid grid-cols-1 gap-4 rounded-2xl border p-4 md:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="dayOfMonth"
+              render={({ field }) => (
+                <FormItem className="space-y-1.5">
+                  <FieldLabel>Day of month</FieldLabel>
+                  <FormControl>
+                    <ShadcnSelect
+                      value={String(field.value)}
+                      onChange={(v) =>
+                        field.onChange(
+                          v as MonthlyScheduleValues['dayOfMonth'],
+                        )
+                      }
+                      options={DAY_OF_MONTH_OPTIONS}
+                      ariaLabel="Day of month"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="timeLocal"
+              render={({ field }) => (
+                <FormItem className="space-y-1.5">
+                  <FieldLabel>Time (your local time)</FieldLabel>
+                  <FormControl>
+                    <TimePicker
+                      value={field.value}
+                      onChange={field.onChange}
+                      ariaLabel="Time for Monthly close"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <RecipientsField
+            control={form.control}
+            ariaLabel="Recipients for Monthly close"
+          />
+        </ReportRowChrome>
+      </form>
+    </Form>
+  );
+}
+
+/**
+ * Shared recipients field used by every cadence. The control is typed as
+ * `any` here because each cadence's form has a different shape, but the
+ * `recipients` slot is always `string[]`. Inside the FormField render we
+ * narrow the field type explicitly. (No `useState` for the chip values —
+ * RHF owns them.)
+ */
+function RecipientsField({
+  control,
+  ariaLabel,
+}: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  control: any;
+  ariaLabel: string;
+}) {
+  return (
+    <div className="border-border bg-bg-base/40 space-y-1.5 rounded-2xl border p-4">
+      <label className="text-text-muted text-[0.65rem] tracking-[0.2em] uppercase">
+        Recipients
+      </label>
+      <p className="text-text-secondary text-xs">
+        Everyone listed here gets this brief when it sends.
+      </p>
+      <FormField
+        control={control}
+        name="recipients"
+        render={({ field, fieldState }) => (
+          <FormItem>
+            <FormControl>
+              <EmailChipInput
+                value={(field.value ?? []) as string[]}
+                onChange={(next) => field.onChange(next)}
+                max={RECIPIENTS_CAP}
+                placeholder="gm@yourcompany.com"
+                ariaLabel={ariaLabel}
+                invalid={!!fieldState.error}
+              />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+    </div>
+  );
+}
+
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <label className="text-text-muted text-[0.65rem] tracking-[0.2em] uppercase">
+      {children}
+    </label>
   );
 }
 
@@ -984,36 +1466,6 @@ function formatNextRun(iso: string, timezone = resolveTimezone()): string {
   });
 }
 
-function Field({
-  label,
-  children,
-  error,
-  className,
-}: {
-  label: string;
-  children: React.ReactNode;
-  error?: string;
-  className?: string;
-}) {
-  return (
-    <div className={'space-y-1.5 ' + (className ?? '')}>
-      <label className="text-text-muted text-[0.65rem] tracking-[0.2em] uppercase">
-        {label}
-      </label>
-      {children}
-      {error ? (
-        <p
-          role="alert"
-          className="text-heat-critical flex items-center gap-1.5 text-xs"
-        >
-          <AlertCircle className="h-3 w-3" aria-hidden="true" />
-          {error}
-        </p>
-      ) : null}
-    </div>
-  );
-}
-
 function ShadcnSelect({
   value,
   onChange,
@@ -1041,19 +1493,37 @@ function ShadcnSelect({
   );
 }
 
-function describeCadence(report: ReportConfig, tzLabel: string): string {
+function describeDailyCadence(timeLocal: string, tzLabel: string): string {
   const time = tzLabel
-    ? `${formatTime12h(report.time)} ${tzLabel}`
-    : formatTime12h(report.time);
-  if (report.id === 'daily') return `Every weekday at ${time}`;
-  if (report.id === 'weekly') {
-    const day =
-      DAY_OF_WEEK_OPTIONS.find((o) => o.value === report.cadenceValue)?.label ??
-      'Mondays';
-    return `${day} at ${time}`;
-  }
+    ? `${formatTime12h(timeLocal)} ${tzLabel}`
+    : formatTime12h(timeLocal);
+  return `Every weekday at ${time}`;
+}
+
+function describeWeeklyCadence(
+  dayOfWeek: number,
+  timeLocal: string,
+  tzLabel: string,
+): string {
+  const time = tzLabel
+    ? `${formatTime12h(timeLocal)} ${tzLabel}`
+    : formatTime12h(timeLocal);
   const day =
-    DAY_OF_MONTH_OPTIONS.find((o) => o.value === report.cadenceValue)?.label ??
+    DAY_OF_WEEK_OPTIONS.find((o) => o.value === String(dayOfWeek))?.label ??
+    'Mondays';
+  return `${day} at ${time}`;
+}
+
+function describeMonthlyCadence(
+  dayOfMonth: MonthlyScheduleValues['dayOfMonth'],
+  timeLocal: string,
+  tzLabel: string,
+): string {
+  const time = tzLabel
+    ? `${formatTime12h(timeLocal)} ${tzLabel}`
+    : formatTime12h(timeLocal);
+  const day =
+    DAY_OF_MONTH_OPTIONS.find((o) => o.value === dayOfMonth)?.label ??
     'Last day of the month';
   return `${day} at ${time}`;
 }
@@ -1083,7 +1553,6 @@ function ReportRowSkeleton({ cadence }: { cadence: ReportId }) {
   return (
     <Card>
       <div className="space-y-5">
-        {/* Title row: icon + title + description, no real state yet. */}
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-3">
             <div className="bg-bg-base flex h-9 w-9 shrink-0 items-center justify-center rounded-xl">
@@ -1105,9 +1574,6 @@ function ReportRowSkeleton({ cadence }: { cadence: ReportId }) {
           <Skeleton className="h-5 w-9 rounded-full" />
         </div>
 
-        {/* Cadence + time row — matches the new two-column layout for
-            weekly/monthly, single column for daily. Skeletons keep the
-            two-column shape so the layout doesn't shift on hydrate. */}
         <div
           className={`border-border bg-bg-base/40 grid grid-cols-1 gap-4 rounded-2xl border p-4 ${
             cadence === 'daily' ? '' : 'md:grid-cols-2'
@@ -1125,14 +1591,12 @@ function ReportRowSkeleton({ cadence }: { cadence: ReportId }) {
           </div>
         </div>
 
-        {/* Recipients row — full width, mirroring the real component. */}
         <div className="border-border bg-bg-base/40 space-y-1.5 rounded-2xl border p-4">
           <SkeletonText width="w-20" className="h-2" />
           <SkeletonText width="w-64" />
           <Skeleton className="h-10 w-full rounded-xl" />
         </div>
 
-        {/* Action row — three skeleton buttons. */}
         <div className="flex items-center justify-end gap-2">
           <Skeleton className="h-8 w-24 rounded-full" />
           <Skeleton className="h-10 w-32 rounded-full" />

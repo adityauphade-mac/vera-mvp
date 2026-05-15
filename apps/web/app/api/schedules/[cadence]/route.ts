@@ -1,5 +1,10 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import {
+  dailyScheduleSchema,
+  weeklyScheduleSchema,
+  monthlyScheduleSchema,
+} from '@vera/types';
 import { db } from '@/lib/db';
 import { computeNextRun, type Cadence } from '@/lib/cadence';
 import { withAuth } from '@/lib/auth-helpers';
@@ -25,20 +30,29 @@ export const runtime = 'nodejs';
 const CADENCES = ['daily', 'weekly', 'monthly'] as const;
 type CadenceLiteral = (typeof CADENCES)[number];
 
-const PutBodySchema = z.object({
-  dayOfWeek: z.number().int().min(0).max(6).nullable().optional(),
-  dayOfMonth: z.string().nullable().optional(),
-  timeLocal: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
-  timezone: z.string().min(1),
-  recipients: z
-    .array(z.string().email())
-    .min(1, 'Add at least one recipient')
-    .max(6, 'At most 6 recipients')
-    .transform((arr) =>
-      Array.from(new Set(arr.map((s) => s.trim().toLowerCase()))),
-    ),
-  enabled: z.boolean().default(true),
-});
+/**
+ * Cadence-specific PUT body schemas — built from the shared schemas in
+ * `@vera/types` plus the `timezone` field that the browser supplies at runtime
+ * (the form itself doesn't expose timezone; it's an IANA name resolved from
+ * the user's browser). The `cadence` literal is supplied by the URL param, so
+ * we omit it here.
+ */
+const dailyPutBody = dailyScheduleSchema
+  .omit({ cadence: true })
+  .extend({ timezone: z.string().min(1) });
+
+const weeklyPutBody = weeklyScheduleSchema
+  .omit({ cadence: true })
+  .extend({ timezone: z.string().min(1) });
+
+const monthlyPutBody = monthlyScheduleSchema
+  .omit({ cadence: true })
+  .extend({ timezone: z.string().min(1) });
+
+/** Lower-case, trim, and dedupe the recipient list before persisting. */
+function normalizeRecipients(arr: readonly string[]): string[] {
+  return Array.from(new Set(arr.map((s) => s.trim().toLowerCase())));
+}
 
 function summarizeRecipients(list: readonly string[]): string {
   if (list.length === 0) return 'no recipients';
@@ -103,19 +117,61 @@ export async function PUT(req: Request, ctx: RouteContext) {
     } catch {
       return NextResponse.json({ error: 'invalid_json' }, { status: 400 });
     }
-    const parsed = PutBodySchema.safeParse(body);
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: 'validation_error', issues: parsed.error.issues },
-        { status: 400 },
-      );
+
+    // Per-cadence parse so TS narrows each branch to a concrete shape.
+    // The discriminated-union approach made `parsed.data` widen to `unknown`
+    // when looked up via the lookup table — splitting here keeps the
+    // Prisma upsert payload strongly typed.
+    let timezone: string;
+    let recipients: string[];
+    let enabled: boolean;
+    let timeLocalRaw: string;
+    let dayOfWeek: number | null = null;
+    let dayOfMonth: string | null = null;
+    if (cadence === 'daily') {
+      const parsed = dailyPutBody.safeParse(body);
+      if (!parsed.success) {
+        return NextResponse.json(
+          { error: 'validation_error', issues: parsed.error.issues },
+          { status: 400 },
+        );
+      }
+      timezone = parsed.data.timezone;
+      recipients = parsed.data.recipients;
+      enabled = parsed.data.enabled;
+      timeLocalRaw = parsed.data.timeLocal;
+    } else if (cadence === 'weekly') {
+      const parsed = weeklyPutBody.safeParse(body);
+      if (!parsed.success) {
+        return NextResponse.json(
+          { error: 'validation_error', issues: parsed.error.issues },
+          { status: 400 },
+        );
+      }
+      timezone = parsed.data.timezone;
+      recipients = parsed.data.recipients;
+      enabled = parsed.data.enabled;
+      timeLocalRaw = parsed.data.timeLocal;
+      dayOfWeek = parsed.data.dayOfWeek;
+    } else {
+      const parsed = monthlyPutBody.safeParse(body);
+      if (!parsed.success) {
+        return NextResponse.json(
+          { error: 'validation_error', issues: parsed.error.issues },
+          { status: 400 },
+        );
+      }
+      timezone = parsed.data.timezone;
+      recipients = parsed.data.recipients;
+      enabled = parsed.data.enabled;
+      timeLocalRaw = parsed.data.timeLocal;
+      dayOfMonth = parsed.data.dayOfMonth;
     }
 
     const { tenantId } = audit;
     const now = new Date();
-    const timeLocal = snapTo15Min(parsed.data.timeLocal);
-    const dayOfWeek = parsed.data.dayOfWeek ?? null;
-    const dayOfMonth = parsed.data.dayOfMonth ?? null;
+    const timeLocal = snapTo15Min(timeLocalRaw);
+    const recipientsNormalized = normalizeRecipients(recipients);
 
     const existing = await db.schedule.findUnique({
       where: { tenantId_cadence: { tenantId, cadence } },
@@ -125,7 +181,7 @@ export async function PUT(req: Request, ctx: RouteContext) {
       !existing ||
       existing.cadence !== cadence ||
       existing.timeLocal !== timeLocal ||
-      existing.timezone !== parsed.data.timezone ||
+      existing.timezone !== timezone ||
       (existing.dayOfWeek ?? null) !== dayOfWeek ||
       (existing.dayOfMonth ?? null) !== dayOfMonth;
 
@@ -138,7 +194,7 @@ export async function PUT(req: Request, ctx: RouteContext) {
         : computeNextRun({
             cadence: cadence as Cadence,
             timeLocal,
-            timezone: parsed.data.timezone,
+            timezone,
             dayOfWeek,
             dayOfMonth,
             fromDate: now,
@@ -154,18 +210,18 @@ export async function PUT(req: Request, ctx: RouteContext) {
           dayOfWeek,
           dayOfMonth,
           timeLocal,
-          timezone: parsed.data.timezone,
-          recipients: parsed.data.recipients,
-          enabled: parsed.data.enabled,
+          timezone,
+          recipients: recipientsNormalized,
+          enabled,
           nextRunAt,
         },
         update: {
           dayOfWeek,
           dayOfMonth,
           timeLocal,
-          timezone: parsed.data.timezone,
-          recipients: parsed.data.recipients,
-          enabled: parsed.data.enabled,
+          timezone,
+          recipients: recipientsNormalized,
+          enabled,
           nextRunAt,
         },
       }),

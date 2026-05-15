@@ -5,3 +5,4 @@
  */
 
 export * from './email';
+export * from './schedule';
