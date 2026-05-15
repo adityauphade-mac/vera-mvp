@@ -21,6 +21,7 @@ export const AUDIT_CATEGORIES = [
   'chat',
   'backfill',
   'follow_up',
+  'automation_rules',
 ] as const;
 export type AuditCategory = (typeof AUDIT_CATEGORIES)[number];
 
@@ -55,6 +56,22 @@ export const AUDIT_ACTIONS_BY_CATEGORY = {
     'notification_skipped_no_recipients',
   ],
   follow_up: ['sent', 'send_failed'],
+  // Automation rules — rule lifecycle (created/updated/deleted/enabled/disabled)
+  // plus per-fire events (evaluated when the evaluator ran; pending_approved,
+  // pending_rejected, pending_expired, pending_send_failed when the queue UI
+  // resolves a row).
+  automation_rules: [
+    'created',
+    'updated',
+    'deleted',
+    'enabled',
+    'disabled',
+    'evaluated',
+    'pending_approved',
+    'pending_rejected',
+    'pending_expired',
+    'pending_send_failed',
+  ],
 } as const satisfies Record<AuditCategory, readonly string[]>;
 
 export type AuditAction<C extends AuditCategory = AuditCategory> =
@@ -114,6 +131,7 @@ export const AUDIT_CATEGORY_LABEL: Record<AuditCategory, string> = {
   chat: 'Chat',
   backfill: 'Backfill',
   follow_up: 'Follow-up',
+  automation_rules: 'Automation rules',
 };
 
 /**
@@ -162,6 +180,14 @@ const ACTION_LABELS: Record<string, string> = {
   notification_skipped_no_recipients: 'Notification skipped (no recipients)',
   // follow_up — distinct from brief.sent_now so the column label is clear
   sent: 'Sent',
+  // automation_rules
+  evaluated: 'Rule evaluated',
+  pending_approved: 'Pending send approved',
+  pending_rejected: 'Pending send rejected',
+  pending_expired: 'Pending send expired',
+  pending_send_failed: 'Pending send failed',
+  enabled: 'Enabled',
+  disabled: 'Disabled',
 };
 
 export function humanizeAction(action: string): string {

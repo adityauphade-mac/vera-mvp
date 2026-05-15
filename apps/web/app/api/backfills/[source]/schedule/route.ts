@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
-import { z } from 'zod';
 import { db } from '@/lib/db';
 import { computeNextRun, type Cadence } from '@/lib/cadence';
 import { isBackfillSource } from '@/lib/backfill/sources';
 import { withAuth } from '@/lib/auth-helpers';
 import { recordAudit } from '@/lib/audit';
+import { backfillScheduleWireSchema } from '@vera/types';
 
 export const runtime = 'nodejs';
 
@@ -20,21 +20,7 @@ export const runtime = 'nodejs';
  * schedule_paused / schedule_resumed / schedule_deleted.
  */
 
-const PutBodySchema = z.object({
-  cadence: z.enum(['daily', 'weekly', 'monthly']),
-  dayOfWeek: z.number().int().min(0).max(6).nullable().optional(),
-  dayOfMonth: z.string().nullable().optional(),
-  timeLocal: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
-  timezone: z.string().min(1),
-  recipients: z
-    .array(z.string().email())
-    .min(1, 'Add at least one recipient')
-    .max(6, 'At most 6 recipients')
-    .transform((arr) =>
-      Array.from(new Set(arr.map((s) => s.trim().toLowerCase()))),
-    ),
-  enabled: z.boolean().default(true),
-});
+const PutBodySchema = backfillScheduleWireSchema;
 
 function summarizeRecipients(list: readonly string[]): string {
   if (list.length === 0) return 'no recipients';

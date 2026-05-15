@@ -27,12 +27,11 @@ test.describe('Scheduler', () => {
     ).toHaveCount(0);
   });
 
-  test('has Reports and Data sync tabs (Highlights is hidden — v2)', async ({
-    page,
-  }) => {
+  test('has Reports, Data sync, and Automation tabs', async ({ page }) => {
     await page.goto('/dashboard/scheduler');
     await expect(page.getByRole('tab', { name: 'Reports' })).toBeVisible();
     await expect(page.getByRole('tab', { name: 'Data sync' })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Automation' })).toBeVisible();
     // Highlights section is intentionally hidden until the diff engine ships.
     await expect(
       page.getByRole('heading', { name: /What gets highlighted/i }),
@@ -101,5 +100,41 @@ test.describe('Scheduler', () => {
     await input.press('Enter');
     await expect(page.getByText(/Not a valid email/i)).toBeVisible();
     await expect(recipientsField.getByText('not-an-email')).toHaveCount(0);
+  });
+
+  test('?tab=sync URL navigates to Data sync tab and survives refresh', async ({
+    page,
+  }) => {
+    await page.goto('/dashboard/scheduler?tab=sync');
+    await expect(
+      page.getByTestId('backfill-card-rooflink_jobs'),
+    ).toBeVisible();
+    // Refresh — tab state lives in the URL, so the sync tab should stay.
+    await page.reload();
+    await expect(
+      page.getByTestId('backfill-card-rooflink_jobs'),
+    ).toBeVisible();
+  });
+
+  test('?tab=automation renders the AutomationTab without crashing', async ({
+    page,
+  }) => {
+    await page.goto('/dashboard/scheduler?tab=automation');
+    await expect(
+      page.getByRole('heading', { name: /Automation rules/i }).first(),
+    ).toBeVisible();
+    // Sanity: the New rule button is the load-bearing CTA on this tab.
+    await expect(page.getByRole('button', { name: /^New rule$/ })).toBeVisible();
+  });
+
+  test('Tab clicks update the URL query param', async ({ page }) => {
+    await page.goto('/dashboard/scheduler');
+    await expect(page).toHaveURL(/\/dashboard\/scheduler($|\?)/);
+
+    await page.getByRole('tab', { name: 'Automation' }).click();
+    await expect(page).toHaveURL(/[?&]tab=automation/);
+
+    await page.getByRole('tab', { name: 'Data sync' }).click();
+    await expect(page).toHaveURL(/[?&]tab=sync/);
   });
 });

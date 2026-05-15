@@ -572,7 +572,136 @@ function CategoryDetailBody({ entry }: { entry: AuditLogEntry }) {
   if (entry.category === 'auth') return <AuthBody entry={entry} />;
   if (entry.category === 'backfill') return <BackfillBody entry={entry} />;
   if (entry.category === 'follow_up') return <FollowUpBody entry={entry} />;
+  if (entry.category === 'automation_rules')
+    return <AutomationRulesBody entry={entry} />;
   return null;
+}
+
+function AutomationRulesBody({ entry }: { entry: AuditLogEntry }) {
+  const d = (entry.details ?? {}) as Record<string, unknown>;
+  const action = entry.action;
+
+  // Pretty-print individual fields by action. For evaluated, show the list of
+  // fired job ids + skip count. For pending_approved/sent_failed, show the
+  // recipient + subject + body preview. For created/updated, show before/after
+  // snapshot.
+  if (action === 'evaluated') {
+    const fired = Array.isArray(d.firedJobIds) ? (d.firedJobIds as number[]) : [];
+    const skipped = typeof d.skippedByCap === 'number' ? d.skippedByCap : 0;
+    const trigger = typeof d.trigger === 'string' ? d.trigger : 'sync';
+    return (
+      <div className="space-y-2 text-sm">
+        <DetailRow label="Trigger" value={trigger} />
+        <DetailRow
+          label="Jobs fired"
+          value={fired.length > 0 ? fired.join(', ') : '—'}
+        />
+        {skipped > 0 ? (
+          <DetailRow
+            label="Skipped by daily cap"
+            value={String(skipped)}
+          />
+        ) : null}
+      </div>
+    );
+  }
+
+  if (action === 'pending_approved' || action === 'pending_send_failed') {
+    const recipient = typeof d.recipient === 'string' ? d.recipient : '—';
+    const subject = typeof d.subject === 'string' ? d.subject : undefined;
+    const body = typeof d.body === 'string' ? d.body : undefined;
+    const error =
+      d.error && typeof d.error === 'object'
+        ? (d.error as { message?: string }).message
+        : null;
+    return (
+      <div className="space-y-2 text-sm">
+        <DetailRow label="Recipient" value={recipient} />
+        {subject ? <DetailRow label="Subject" value={subject} /> : null}
+        {body ? (
+          <>
+            <p className="text-text-muted text-[0.65rem] tracking-[0.2em] uppercase">
+              Body
+            </p>
+            <pre className="text-text-primary font-sans text-sm leading-relaxed whitespace-pre-wrap">
+              {body}
+            </pre>
+          </>
+        ) : null}
+        {error ? (
+          <DetailRow label="Error" value={error} valueClassName="text-heat-critical" />
+        ) : null}
+      </div>
+    );
+  }
+
+  if (action === 'pending_rejected') {
+    const reason = typeof d.reason === 'string' && d.reason.length > 0 ? d.reason : '(no reason)';
+    const recipient =
+      typeof d.proposedRecipient === 'string' ? d.proposedRecipient : '—';
+    const subject =
+      typeof d.proposedSubject === 'string' ? d.proposedSubject : undefined;
+    return (
+      <div className="space-y-2 text-sm">
+        <DetailRow label="Reason" value={reason} />
+        <DetailRow label="Would have sent to" value={recipient} />
+        {subject ? <DetailRow label="Subject" value={subject} /> : null}
+      </div>
+    );
+  }
+
+  // created / updated / deleted / enabled / disabled — show a compact
+  // before/after block. The route emits { rule } for created/deleted and
+  // { before, after } for updated/enabled/disabled.
+  const rule = d.rule as Record<string, unknown> | undefined;
+  const before = d.before as Record<string, unknown> | undefined;
+  const after = d.after as Record<string, unknown> | undefined;
+  const display = after ?? rule ?? before;
+  if (!display) return null;
+  return (
+    <div className="space-y-2 text-sm">
+      <DetailRow label="Name" value={String(display.name ?? '')} />
+      <DetailRow
+        label="Condition"
+        value={`${display.metric ?? '?'} ${display.operator ?? '?'} ${display.threshold ?? '?'}`}
+      />
+      <DetailRow
+        label="Recipient"
+        value={
+          display.recipientMode === 'fixed_email'
+            ? String(display.recipientEmail ?? '')
+            : 'Assigned rep'
+        }
+      />
+      {before ? (
+        <p className="text-text-muted text-xs">
+          Before: enabled={String((before as { enabled?: boolean }).enabled)},
+          threshold={String((before as { threshold?: number }).threshold)}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function DetailRow({
+  label,
+  value,
+  valueClassName,
+}: {
+  label: string;
+  value: string;
+  valueClassName?: string;
+}) {
+  return (
+    <div className="flex flex-wrap items-baseline gap-2">
+      <p className="text-text-muted text-[0.65rem] tracking-[0.2em] uppercase">
+        {label}
+      </p>
+      <p className={`text-text-primary text-sm ${valueClassName ?? ''}`}>
+        {value}
+      </p>
+    </div>
+  );
 }
 
 function FollowUpBody({ entry }: { entry: AuditLogEntry }) {

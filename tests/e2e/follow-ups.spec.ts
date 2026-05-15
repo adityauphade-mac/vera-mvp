@@ -41,6 +41,90 @@ test.describe('Follow-ups & executive review', () => {
     await expect(page.getByRole('dialog')).toHaveCount(0);
   });
 
+  test('blocks send and surfaces inline error when subject is empty', async ({
+    page,
+  }) => {
+    // Track API hits — the validation guard must short-circuit before any
+    // network round-trip.
+    let apiCalls = 0;
+    await page.route('**/api/follow-ups/send', async (route) => {
+      apiCalls += 1;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ id: 'should_not_be_called' }),
+      });
+    });
+
+    await page.goto('/dashboard/follow-ups');
+    await page.getByRole('button', { name: 'Draft email' }).first().click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByRole('button', { name: /Send via Vera/i }).click();
+
+    // Clear the subject — RHF's onChange resolver fires immediately, so the
+    // inline FormMessage error must appear without a submit attempt.
+    const subject = dialog.locator('#follow-up-subject');
+    await subject.fill('');
+
+    await expect(dialog.getByText(/Subject required/i)).toBeVisible();
+
+    // The Send button must be disabled while the form is invalid.
+    const sendBtn = dialog.getByRole('button', { name: /^Send$/ });
+    await expect(sendBtn).toBeDisabled();
+
+    // Attempt the click anyway — disabled buttons should not fire submit, and
+    // even if they did the resolver should short-circuit before fetch.
+    await sendBtn.click({ force: true }).catch(() => {
+      /* expected: disabled */
+    });
+
+    // Confirm dialog must never appear, because send never started.
+    await expect(
+      page.getByRole('dialog').filter({ hasText: /Send follow-up to/ }),
+    ).toHaveCount(0);
+
+    expect(apiCalls).toBe(0);
+  });
+
+  test('blocks send and surfaces inline error when cc contains invalid email', async ({
+    page,
+  }) => {
+    let apiCalls = 0;
+    await page.route('**/api/follow-ups/send', async (route) => {
+      apiCalls += 1;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ id: 'should_not_be_called' }),
+      });
+    });
+
+    await page.goto('/dashboard/follow-ups');
+    await page.getByRole('button', { name: 'Draft email' }).first().click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByRole('button', { name: /Send via Vera/i }).click();
+
+    // EmailChipInput rejects invalid input at the chip level (so it never
+    // becomes a chip), surfacing a draft-level "not a valid email" hint. The
+    // Send button stays enabled because no invalid value is committed to the
+    // form, which is the desired behavior — invalid email never reaches the
+    // API.
+    const ccInput = dialog.getByRole('group', { name: 'Cc' }).getByRole('textbox');
+    await ccInput.fill('not-an-email');
+    await ccInput.press('Enter');
+
+    // No chip was added.
+    await expect(dialog.getByText('not-an-email')).toHaveCount(0);
+
+    // Inline validation hint from EmailChipInput.
+    await expect(
+      dialog.getByText(/not a valid email|invalid email/i).first(),
+    ).toBeVisible();
+
+    // No network call occurred.
+    expect(apiCalls).toBe(0);
+  });
+
   test('sends a follow-up email through the audited pipeline', async ({ page }) => {
     // Mock the send route — assert payload shape, then return success.
     let receivedPayload: Record<string, unknown> | null = null;

@@ -36,6 +36,69 @@ manual deploy after every merge to `main`.
 
 Reverse-chronological. Each entry describes the user-visible behavior change.
 
+### 2026-05-15 — Automation rules + RHF standardization (NOT YET DEPLOYED)
+
+**Branch `claude/mystifying-lalande-5470b4`** — landing on `main` once
+manual QA passes. Pre-deploy entry per CLAUDE.md rule #14.
+
+*Automation rules.* New tab at `/dashboard/scheduler?tab=automation`.
+Operators author rules that watch one of three AR metrics — `aging_days`,
+`balance`, `heat_score` — for a state transition and propose an email
+into a human-approval queue (Pattern B). Three operators:
+
+- `crosses_above` — was below threshold, now ≥ threshold → fires once.
+- `crosses_below` — was ≥ threshold, now below → fires once.
+- `stays_above_for_n_days` — ≥ threshold continuously for N days, then
+  re-fires every N days until the metric drops.
+
+Recipient is either the rep assigned to the job (looked up dynamically
+per fire via `ARJob.rep.email`) or a fixed test email. Each rule carries
+its own subject + body template with `{{placeholder}}` interpolation.
+
+The evaluator hooks into `tick-worker.ts` immediately after `promote()`
+so rules fire once per successful promoted backfill. Per-rule daily send
+cap (default 25/day) prevents a misconfigured threshold from avalanching
+the queue. Pending rows surface in a queue below the rule list; Approve
+routes through the existing `sendEmail` pipeline and audit log; Reject
+captures the decision. Missing-recipient rows render with an inline
+email override input.
+
+*RHF standardization.* Every form in the app now uses
+`react-hook-form` + `zodResolver` against a canonical schema in
+`shared/types/src/forms/`:
+
+- `DraftEmailButton` (follow-ups compose modal).
+- `SchedulerView` (three per-cadence schedule editors + nuqs-driven
+  `?tab=` URL state for the report / sync / automation tabs).
+- `DataSyncSection` (two per-source backfill schedule editors).
+- New `AutomationRuleModal` for the rule builder.
+
+Same schema validates client form and the API route body — single source
+of truth in `@vera/types`. New `@vera/ui` primitive `Form` /
+`FormField` / `FormItem` / `FormControl` / `FormMessage` adds inline
+per-field error rendering across all forms.
+
+**Schema migration:** `20260515150000_add_automation_rules` adds
+`AutomationRule`, `RuleEvaluationState`, `PendingRuleSend`. Indexed on
+(tenantId, enabled) for rule list and (tenantId, status, createdAt) for
+the pending queue. ON DELETE CASCADE on rule FKs so removing a rule
+cleans up its state + pending rows.
+
+**Audit:** new `automation_rules` category with actions `created`,
+`updated`, `deleted`, `enabled`, `disabled`, `evaluated`,
+`pending_approved`, `pending_rejected`, `pending_expired`,
+`pending_send_failed`. AuditDetailSheet renders an action-specific
+detail body for each.
+
+**Rollback:** disable all rules via the toggle on the automation tab;
+reject pending sends en masse. Reverting the migration requires SQL
+drops of the three tables in reverse FK order:
+`PendingRuleSend` → `RuleEvaluationState` → `AutomationRule`. No data
+loss outside the rule-related rows themselves (SendLog rows produced by
+approved sends are preserved).
+
+---
+
 ### 2026-05-15 — Narrated demo video on the landing page
 
 **Deployed.** Merge commit `2c7b976` on `main` (PR [#21](https://github.com/adityauphade-mac/vera-mvp/pull/21)). Vercel deployment `dpl_2c1snwAT29QxkfZAtHCjGZz6EWtC`. Verified live on <https://vera-mvp.vercel.app>: both `<video>` elements in DOM, MP4s + posters serve `200 OK` with correct content-types (`video/mp4`, `image/jpeg`).

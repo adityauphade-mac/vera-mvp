@@ -16,6 +16,8 @@ import { invalidateWriteOffsSnapshot } from '@/lib/write-offs-data';
 import { sanitizeBackfillError } from './error-display';
 import { buildSyncSummaryData } from '@/lib/sync-summary-data';
 import { renderSyncSummaryPDF } from '@/lib/sync-summary-pdf';
+import { evaluateRulesForTenant } from '@/lib/automation/evaluator';
+import { withSystemAuditContext } from '@/lib/audit-context';
 
 /**
  * Core tick logic. Pure-ish wrapper that:
@@ -174,6 +176,27 @@ export async function runTick(
       // high-watermark so the NEXT run can fetch only what changed since.
       await promote(source, runId, run.mode);
       await advanceWatermark(runId);
+
+      // Fire automation-rule evaluation against the now-promoted dataset.
+      // Wrapped in try/catch so a misbehaving rule cannot retroactively
+      // poison a successful backfill — the run still reports as completed
+      // and the next tick chain remains intact.
+      try {
+        await withSystemAuditContext({ tenantId: run.tenantId }, () =>
+          evaluateRulesForTenant({
+            tenantId: run.tenantId,
+            trigger: 'sync',
+          }),
+        );
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error('[automation] evaluation after backfill promotion failed', {
+          runId,
+          source,
+          err: err instanceof Error ? err.message : err,
+        });
+      }
+
       return {
         status: 'completed',
         itemsProcessed: run.itemsProcessed + batch.items.length,

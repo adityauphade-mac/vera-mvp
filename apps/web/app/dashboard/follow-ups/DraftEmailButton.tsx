@@ -3,7 +3,20 @@
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Send, X } from 'lucide-react';
-import { Button, EmailChipInput, toast, useConfirm } from '@vera/ui';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { draftEmailSchema, type DraftEmailValues } from '@vera/types';
+import {
+  Button,
+  EmailChipInput,
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormMessage,
+  toast,
+  useConfirm,
+} from '@vera/ui';
 
 type Mode = 'preview' | 'compose';
 
@@ -26,18 +39,37 @@ export function DraftEmailButton({
   const [mode, setMode] = useState<Mode>('preview');
   const [copied, setCopied] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [sending, setSending] = useState(false);
 
   const initialTo = useMemo(
     () => [repEmail.trim().toLowerCase()],
     [repEmail],
   );
-  const [to, setTo] = useState<string[]>(initialTo);
-  const [cc, setCc] = useState<string[]>([]);
-  const [subject, setSubject] = useState(initialSubject);
-  const [body, setBody] = useState(initialBody);
+
+  const defaultValues = useMemo<DraftEmailValues>(
+    () => ({
+      to: initialTo,
+      cc: [],
+      subject: initialSubject,
+      body: initialBody,
+    }),
+    [initialTo, initialSubject, initialBody],
+  );
+
+  const form = useForm<DraftEmailValues>({
+    resolver: zodResolver(draftEmailSchema),
+    mode: 'onChange',
+    defaultValues,
+  });
 
   const confirm = useConfirm();
+
+  // Live values for preview-mode rendering and clipboard copy. Using watch()
+  // means the preview pane reflects edits the user made in compose mode.
+  const watched = form.watch();
+  const subject = watched.subject;
+  const body = watched.body;
+  const to = watched.to;
+  const cc = watched.cc;
 
   useEffect(() => setMounted(true), []);
 
@@ -52,15 +84,13 @@ export function DraftEmailButton({
       window.removeEventListener('keydown', onKey);
       document.body.style.overflow = '';
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   function closeAndReset() {
     setOpen(false);
     setMode('preview');
-    setTo(initialTo);
-    setCc([]);
-    setSubject(initialSubject);
-    setBody(initialBody);
+    form.reset(defaultValues);
     setCopied(false);
   }
 
@@ -77,28 +107,20 @@ export function DraftEmailButton({
       });
   }
 
-  const canSend =
-    to.length > 0 &&
-    subject.trim().length > 0 &&
-    body.trim().length > 0 &&
-    !sending;
-
-  async function send() {
-    if (!canSend) return;
+  async function onSend(values: DraftEmailValues) {
     const recipientLabel =
-      to.length === 1 ? to[0] : `${to.length} recipients`;
+      values.to.length === 1 ? values.to[0] : `${values.to.length} recipients`;
     const ok = await confirm({
       title: `Send follow-up to ${recipientLabel}`,
       description:
-        cc.length > 0
-          ? `Vera will send this email now, cc'ing ${cc.length} additional ${cc.length === 1 ? 'person' : 'people'}. The send is logged in the audit trail.`
+        values.cc.length > 0
+          ? `Vera will send this email now, cc'ing ${values.cc.length} additional ${values.cc.length === 1 ? 'person' : 'people'}. The send is logged in the audit trail.`
           : 'Vera will send this email now. The send is logged in the audit trail.',
       confirmLabel: 'Send now',
       cancelLabel: 'Keep editing',
     });
     if (!ok) return;
 
-    setSending(true);
     try {
       const res = await fetch('/api/follow-ups/send', {
         method: 'POST',
@@ -107,10 +129,10 @@ export function DraftEmailButton({
           jobId,
           jobAddress,
           repName,
-          to,
-          cc,
-          subject,
-          body,
+          to: values.to,
+          cc: values.cc,
+          subject: values.subject,
+          body: values.body,
         }),
       });
       if (!res.ok) {
@@ -124,10 +146,11 @@ export function DraftEmailButton({
       closeAndReset();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Send failed');
-    } finally {
-      setSending(false);
     }
   }
+
+  const sending = form.formState.isSubmitting;
+  const canSend = form.formState.isValid && !sending;
 
   const modal =
     open && mounted ? (
@@ -185,52 +208,101 @@ export function DraftEmailButton({
               </div>
             </div>
           ) : (
-            <div className="flex-1 space-y-4 overflow-y-auto px-5 py-5 sm:px-7 sm:py-6">
-              <FromField />
-              <Field label="To" htmlFor="follow-up-to">
-                <EmailChipInput
-                  ariaLabel="To"
-                  value={to}
-                  onChange={setTo}
-                  max={6}
-                  invalid={to.length === 0}
-                  helperText={
-                    to.length === 0
-                      ? 'Add at least one recipient.'
-                      : 'Press Enter or comma to add. Up to 6 recipients.'
-                  }
+            <Form {...form}>
+              <form
+                id="draft-email-form"
+                onSubmit={form.handleSubmit(onSend)}
+                className="flex-1 space-y-4 overflow-y-auto px-5 py-5 sm:px-7 sm:py-6"
+              >
+                <FromField />
+                <FormField
+                  control={form.control}
+                  name="to"
+                  render={({ field, fieldState }) => (
+                    <FormItem>
+                      <FieldLabel>To</FieldLabel>
+                      <FormControl>
+                        <EmailChipInput
+                          ariaLabel="To"
+                          value={field.value}
+                          onChange={field.onChange}
+                          max={6}
+                          invalid={!!fieldState.error}
+                          helperText={
+                            fieldState.error
+                              ? undefined
+                              : 'Press Enter or comma to add. Up to 6 recipients.'
+                          }
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-              </Field>
-              <Field label="Cc (optional)" htmlFor="follow-up-cc">
-                <EmailChipInput
-                  ariaLabel="Cc"
-                  value={cc}
-                  onChange={setCc}
-                  max={6}
-                  placeholder="cc@company.com"
-                  helperText="Optional. Press Enter or comma to add."
+                <FormField
+                  control={form.control}
+                  name="cc"
+                  render={({ field, fieldState }) => (
+                    <FormItem>
+                      <FieldLabel>Cc (optional)</FieldLabel>
+                      <FormControl>
+                        <EmailChipInput
+                          ariaLabel="Cc"
+                          value={field.value}
+                          onChange={field.onChange}
+                          max={6}
+                          placeholder="cc@company.com"
+                          invalid={!!fieldState.error}
+                          helperText={
+                            fieldState.error
+                              ? undefined
+                              : 'Optional. Press Enter or comma to add.'
+                          }
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-              </Field>
-              <Field label="Subject" htmlFor="follow-up-subject">
-                <input
-                  id="follow-up-subject"
-                  type="text"
-                  value={subject}
-                  onChange={(e) => setSubject(e.target.value)}
-                  className="border-border focus:border-accent bg-bg-card text-text-primary placeholder:text-text-muted w-full rounded-xl border px-3 py-2.5 text-sm outline-none transition-colors"
-                  placeholder="Subject"
+                <FormField
+                  control={form.control}
+                  name="subject"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FieldLabel htmlFor="follow-up-subject">Subject</FieldLabel>
+                      <FormControl>
+                        <input
+                          {...field}
+                          id="follow-up-subject"
+                          type="text"
+                          className="border-border focus:border-accent bg-bg-card text-text-primary placeholder:text-text-muted w-full rounded-xl border px-3 py-2.5 text-sm outline-none transition-colors"
+                          placeholder="Subject"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-              </Field>
-              <Field label="Body" htmlFor="follow-up-body">
-                <textarea
-                  id="follow-up-body"
-                  value={body}
-                  onChange={(e) => setBody(e.target.value)}
-                  rows={12}
-                  className="border-border focus:border-accent bg-bg-card text-text-primary placeholder:text-text-muted w-full resize-y rounded-xl border px-3 py-2.5 font-sans text-sm leading-relaxed outline-none transition-colors"
+                <FormField
+                  control={form.control}
+                  name="body"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FieldLabel htmlFor="follow-up-body">Body</FieldLabel>
+                      <FormControl>
+                        <textarea
+                          {...field}
+                          id="follow-up-body"
+                          rows={12}
+                          className="border-border focus:border-accent bg-bg-card text-text-primary placeholder:text-text-muted w-full resize-y rounded-xl border px-3 py-2.5 font-sans text-sm leading-relaxed outline-none transition-colors"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-              </Field>
-            </div>
+              </form>
+            </Form>
           )}
 
           <div className="bg-bg-base/40 border-border flex shrink-0 flex-wrap items-center justify-between gap-2 border-t px-5 py-3 sm:gap-3 sm:px-7 sm:py-4">
@@ -261,9 +333,10 @@ export function DraftEmailButton({
                     Back
                   </Button>
                   <Button
+                    type="submit"
+                    form="draft-email-form"
                     variant="primary"
                     size="md"
-                    onClick={send}
                     disabled={!canSend}
                   >
                     {sending ? 'Sending…' : 'Send'}
@@ -286,25 +359,28 @@ export function DraftEmailButton({
   );
 }
 
-function Field({
-  label,
+/**
+ * Visual-label primitive used inside <FormItem>. We don't use `<FormLabel>`
+ * from @vera/ui here because the existing visual treatment is a tiny
+ * uppercase eyebrow (`text-text-muted text-[0.65rem] tracking-[0.2em] uppercase`)
+ * rather than the FormLabel default. The FormItem still wires id/aria via
+ * <FormControl>, and <FormMessage> still surfaces validation errors —
+ * we just present the label with this app-specific class.
+ */
+function FieldLabel({
   htmlFor,
   children,
 }: {
-  label: string;
   htmlFor?: string;
   children: React.ReactNode;
 }) {
   return (
-    <div>
-      <label
-        htmlFor={htmlFor}
-        className="text-text-muted block text-[0.65rem] tracking-[0.2em] uppercase"
-      >
-        {label}
-      </label>
-      <div className="mt-1.5">{children}</div>
-    </div>
+    <label
+      htmlFor={htmlFor}
+      className="text-text-muted block text-[0.65rem] tracking-[0.2em] uppercase"
+    >
+      {children}
+    </label>
   );
 }
 

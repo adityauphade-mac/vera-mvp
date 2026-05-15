@@ -13,14 +13,14 @@ datasource db {
 }
 
 model Tenant {
-  id                Int       @id @default(autoincrement())
+  id                Int      @id @default(autoincrement())
   name              String
-  slug              String    @unique
+  slug              String   @unique
   senderDomain      String?
   brandColor        String?
-  briefingTimeLocal String    @default("07:00")
-  briefingTimezone  String    @default("America/Chicago")
-  createdAt         DateTime  @default(now())
+  briefingTimeLocal String   @default("07:00")
+  briefingTimezone  String   @default("America/Chicago")
+  createdAt         DateTime @default(now())
 
   users               User[]
   schedules           Schedule[]
@@ -30,6 +30,8 @@ model Tenant {
   backfillSchedules   BackfillSchedule[]
   backfillRuns        BackfillRun[]
   failureNotification FailureNotificationSetting?
+  automationRules     AutomationRule[]
+  pendingRuleSends    PendingRuleSend[]
 }
 
 model User {
@@ -69,8 +71,8 @@ model Schedule {
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
-  tenant   Tenant    @relation(fields: [tenantId], references: [id])
-  sendLog  SendLog[]
+  tenant  Tenant    @relation(fields: [tenantId], references: [id])
+  sendLog SendLog[]
 
   // Natural key: at most one schedule per tenant per cadence. The whole
   // scheduler UX is "edit the daily/weekly/monthly row" — duplicates are a
@@ -80,7 +82,7 @@ model Schedule {
 }
 
 model SendLog {
-  id           Int       @id @default(autoincrement())
+  id           Int      @id @default(autoincrement())
   tenantId     Int
   /// nullable — manual Send-now sends have no schedule
   scheduleId   Int?
@@ -93,7 +95,7 @@ model SendLog {
   /// 'sent' | 'failed' | 'cancelled'
   status       String
   errorMessage String?
-  sentAt       DateTime  @default(now())
+  sentAt       DateTime @default(now())
 
   tenant   Tenant    @relation(fields: [tenantId], references: [id])
   schedule Schedule? @relation(fields: [scheduleId], references: [id])
@@ -134,32 +136,32 @@ model Briefing {
 /// See `shared/types/audit.ts` for the typed category/action catalog
 /// and CLAUDE.md "Audit logging" for the integration rules.
 model AuditLog {
-  id          Int      @id @default(autoincrement())
-  tenantId    Int
+  id         Int      @id @default(autoincrement())
+  tenantId   Int
   /// null when a system task did it (cron, scripts, migrations).
-  userId      Int?
+  userId     Int?
   /// Denormalized at write-time. Survives a future User deletion so
   /// historical rows stay readable even if the actor is gone.
-  userEmail   String?
+  userEmail  String?
   /// 'auth' | 'schedule' | 'brief' | 'briefing' | 'chat' | ...
   /// Stored as plain string — adding a new category never requires
   /// a DB migration. The canonical list lives in shared/types/audit.ts.
-  category    String
+  category   String
   /// Verb describing what happened: 'created' | 'updated' | 'paused' |
   /// 'resumed' | 'deleted' | 'sent_now' | 'sent_scheduled' | etc.
-  action      String
+  action     String
   /// Prisma model name when category=schedule/brief/briefing/etc.
   /// Null for auth + chat events that don't reference a row.
-  entityType  String?
+  entityType String?
   /// Stringified primary key of the referenced entity.
-  entityId    String?
+  entityId   String?
   /// One-line human-readable description shown in the table.
-  summary     String
+  summary    String
   /// Flexible JSON payload — typically `{ before, after, changedFields }`
   /// for mutations; conversation transcript for chat; OAuth metadata
   /// for auth. The detail sheet renders this.
-  details     Json?
-  createdAt   DateTime @default(now())
+  details    Json?
+  createdAt  DateTime @default(now())
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
 
@@ -176,38 +178,38 @@ model AuditLog {
 /// Natural key: one row per (tenant, source). The whole UX is "edit the row",
 /// never "create another one".
 model BackfillSchedule {
-  id          Int       @id @default(autoincrement())
-  tenantId    Int
+  id             Int       @id @default(autoincrement())
+  tenantId       Int
   /// 'rooflink_jobs' | 'rooflink_lineitems'
-  source      String
+  source         String
   /// 'daily' | 'weekly' | 'monthly'
-  cadence     String
+  cadence        String
   /// 0 (Sunday) .. 6 (Saturday) for weekly cadence
-  dayOfWeek   Int?
+  dayOfWeek      Int?
   /// '1'..'28' or 'last' or 'last-business' for monthly cadence
-  dayOfMonth  String?
+  dayOfMonth     String?
   /// 'HH:mm' in the tenant's local timezone
-  timeLocal   String
+  timeLocal      String
   /// IANA tz, e.g. 'America/Chicago'
-  timezone    String
+  timezone       String
   /// Up to 6 recipient emails for sync completion/failure alerts. Empty
   /// array means no notifications are sent (sync still runs).
-  recipients  String[]
-  enabled     Boolean   @default(true)
-  nextRunAt   DateTime?
-  lastRunAt   DateTime?
+  recipients     String[]
+  enabled        Boolean   @default(true)
+  nextRunAt      DateTime?
+  lastRunAt      DateTime?
   /// High-watermark: the `startedAt` of the most recent successful run.
   /// null = never synced; next run is full. Otherwise next run fetches
   /// only records with `date_last_edited > lastSyncedAt`.
-  lastSyncedAt  DateTime?
+  lastSyncedAt   DateTime?
   /// `startedAt` of the last full (non-incremental) successful run.
   /// Used to suggest periodic full re-sync to catch deletions / schema drift.
   lastFullSyncAt DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  tenant      Tenant         @relation(fields: [tenantId], references: [id])
-  runs        BackfillRun[]
+  tenant Tenant        @relation(fields: [tenantId], references: [id])
+  runs   BackfillRun[]
 
   @@unique([tenantId, source])
   @@index([tenantId, enabled, nextRunAt])
@@ -250,8 +252,8 @@ model BackfillRun {
   promoted          Boolean   @default(false)
   createdAt         DateTime  @default(now())
 
-  tenant            Tenant            @relation(fields: [tenantId], references: [id])
-  schedule          BackfillSchedule? @relation(fields: [scheduleId], references: [id])
+  tenant   Tenant            @relation(fields: [tenantId], references: [id])
+  schedule BackfillSchedule? @relation(fields: [scheduleId], references: [id])
 
   @@index([tenantId, source, status])
   @@index([source, promoted, finishedAt])
@@ -284,11 +286,120 @@ model RawRooflinkLineItems {
 /// Configured ops email for failure notifications. One row per tenant.
 /// Distinct from per-cadence brief recipients on purpose.
 model FailureNotificationSetting {
-  id          Int      @id @default(autoincrement())
-  tenantId    Int      @unique
+  id        Int      @id @default(autoincrement())
+  tenantId  Int      @unique
   /// Email that receives notifications when a brief send or backfill run fails.
-  opsEmail    String?
-  updatedAt   DateTime @updatedAt
+  opsEmail  String?
+  updatedAt DateTime @updatedAt
 
-  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+}
+
+/// Rule the user authors under /dashboard/scheduler?tab=automation.
+/// Watches one numeric AR metric per row; the evaluator (run after every
+/// promoted BackfillRun) creates a PendingRuleSend whenever a job crosses
+/// the configured threshold. The pending row is then approved or rejected
+/// by a human before any email leaves the system (rule #5 — explicit intent
+/// per send).
+model AutomationRule {
+  id              Int       @id @default(autoincrement())
+  tenantId        Int
+  /// Display name shown on the rule card.
+  name            String
+  /// 'aging_days' | 'balance' | 'heat_score' — maps to ARJob.daysPastTerms,
+  /// .balance, and .heatScore respectively.
+  metric          String
+  /// 'crosses_above' | 'crosses_below' | 'stays_above_for_n_days'
+  operator        String
+  /// Numeric cutoff for the operator. Days for aging, dollars for balance,
+  /// 0-100 for heat score.
+  threshold       Float
+  /// Only used when operator = 'stays_above_for_n_days'. Number of days the
+  /// metric must stay above the threshold before re-firing.
+  thresholdDays   Int?
+  /// 'assigned_rep' (uses ARJob.rep.email at fire time) | 'fixed_email'.
+  recipientMode   String
+  /// Required when recipientMode = 'fixed_email'.
+  recipientEmail  String?
+  /// Plain-text template with {{job.customer}}, {{job.balance}},
+  /// {{job.aging_days}}, {{job.heat_score}}, {{rule.name}}, {{rep.name}},
+  /// {{rep.email}}, {{metric.value}} placeholders.
+  subjectTemplate String
+  bodyTemplate    String
+  /// Cap on PendingRuleSend rows this rule may create per 24 hours.
+  /// A bug in the threshold can't avalanche the queue past this.
+  dailySendCap    Int       @default(25)
+  enabled         Boolean   @default(true)
+  /// When the evaluator last ran against this rule. Drives the "stale" UI
+  /// badge when > 36h old.
+  lastEvaluatedAt DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  createdById     Int?
+
+  tenant           Tenant                @relation(fields: [tenantId], references: [id])
+  evaluationStates RuleEvaluationState[]
+  pendingSends     PendingRuleSend[]
+
+  @@index([tenantId, enabled])
+}
+
+/// Per (rule, job) baseline so the evaluator can detect *crossings* — went
+/// from below threshold to above — rather than just "currently above".
+/// One row per (ruleId, jobId). Created on rule bootstrap; updated every
+/// time the evaluator runs.
+model RuleEvaluationState {
+  id                Int       @id @default(autoincrement())
+  ruleId            Int
+  /// ARJob id (RoofLink job number).
+  jobId             Int
+  lastMetricValue   Float?
+  wasAboveThreshold Boolean   @default(false)
+  /// When the current above-threshold streak started — null when below.
+  /// Used by the stays_above_for_n_days operator.
+  streakStartedAt   DateTime?
+  /// When this (rule, job) last produced a PendingRuleSend.
+  lastFiredAt       DateTime?
+  lastEvaluatedAt   DateTime
+
+  rule AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  @@unique([ruleId, jobId])
+  @@index([ruleId])
+}
+
+/// One row per "rule fired on this job". Awaits human review on the
+/// automation tab's queue. Approve → routes through the existing
+/// sendEmail pipeline (audited). Reject → marks rejected with optional
+/// reason. Expires automatically after `expiresAt` if neither action.
+model PendingRuleSend {
+  id                Int       @id @default(autoincrement())
+  tenantId          Int
+  ruleId            Int
+  jobId             Int
+  /// Snapshot of the trigger context: metric, operator, threshold, value at
+  /// fire time, plus a job snapshot so the queue can render even if the job
+  /// has since changed.
+  triggerSnapshot   Json
+  /// Resolved at fire time. null when recipientMode = 'assigned_rep' and
+  /// the assigned rep has no email — surfaces in the UI as "needs recipient".
+  proposedRecipient String?
+  proposedSubject   String
+  proposedBody      String
+  /// 'pending' | 'missing_recipient' | 'approved' | 'rejected' | 'sent' |
+  /// 'expired' | 'pending_send_failed'
+  status            String    @default("pending")
+  reviewedById      Int?
+  reviewedAt        DateTime?
+  rejectionReason   String?
+  sendLogId         Int?
+  /// Auto-expire after this. Default: createdAt + 7 days.
+  expiresAt         DateTime
+  createdAt         DateTime  @default(now())
+
+  tenant Tenant         @relation(fields: [tenantId], references: [id])
+  rule   AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status, createdAt])
+  @@index([ruleId])
 }

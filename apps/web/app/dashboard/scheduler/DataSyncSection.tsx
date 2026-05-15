@@ -1,6 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useForm, type UseFormReturn } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import {
   AlertCircle,
   CalendarClock,
@@ -25,6 +27,11 @@ import {
   toast,
   useConfirm,
 } from '@vera/ui';
+import {
+  backfillScheduleFormSchema,
+  toBackfillScheduleWireBody,
+  type BackfillScheduleFormValues,
+} from '@vera/types';
 
 /**
  * "Data sync" section of /dashboard/scheduler — owns its own data flow.
@@ -115,13 +122,11 @@ const CADENCE_OPTIONS = [
   { value: 'monthly', label: 'Monthly' },
 ];
 
-interface DraftForm {
-  cadence: 'daily' | 'weekly' | 'monthly';
-  dayOfWeek: string;
-  dayOfMonth: string;
-  timeLocal: string;
-  recipients: string[];
-}
+/**
+ * Form values for one backfill schedule card. RHF + Zod schema lives in
+ * @vera/types so the route and the form validate the same shape.
+ */
+type DraftForm = BackfillScheduleFormValues;
 
 const DEFAULT_FORM: DraftForm = {
   cadence: 'weekly',
@@ -130,23 +135,6 @@ const DEFAULT_FORM: DraftForm = {
   timeLocal: '03:00',
   recipients: [],
 };
-
-function isValidEmail(s: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
-}
-
-function recipientsValid(list: readonly string[]): boolean {
-  if (list.length === 0) return false;
-  if (list.length > RECIPIENTS_CAP) return false;
-  return list.every(isValidEmail);
-}
-
-function recipientsEqual(a: readonly string[], b: readonly string[]): boolean {
-  if (a.length !== b.length) return false;
-  const sa = [...a].sort();
-  const sb = [...b].sort();
-  return sa.every((v, i) => v === sb[i]);
-}
 
 function resolveTimezone(): string {
   if (typeof window === 'undefined') return 'America/Chicago';
@@ -189,19 +177,6 @@ function formFromSchedule(s: BackfillSchedule): DraftForm {
   };
 }
 
-function isDirty(form: DraftForm, server: BackfillSchedule): boolean {
-  if (form.cadence !== server.cadence) return true;
-  if (form.timeLocal !== server.timeLocal) return true;
-  if (form.cadence === 'weekly') {
-    if (Number(form.dayOfWeek) !== (server.dayOfWeek ?? 1)) return true;
-  }
-  if (form.cadence === 'monthly') {
-    if (form.dayOfMonth !== (server.dayOfMonth ?? 'last')) return true;
-  }
-  if (!recipientsEqual(form.recipients, server.recipients)) return true;
-  return false;
-}
-
 export function DataSyncSection() {
   const [timezone, setTimezone] = useState('America/Chicago');
   // `false` until the first /api/backfills response lands. Drives the
@@ -226,10 +201,24 @@ export function DataSyncSection() {
     rooflink_jobs: null,
     rooflink_lineitems: null,
   });
-  const [forms, setForms] = useState<Record<Source, DraftForm>>({
-    rooflink_jobs: { ...DEFAULT_FORM, timeLocal: '03:00' },
-    rooflink_lineitems: { ...DEFAULT_FORM, timeLocal: '03:30' },
+  // One RHF instance per source. Each is dirty-tracked independently so the
+  // Save button for one card doesn't activate when the other card's form
+  // changes. zodResolver validates against backfillScheduleFormSchema —
+  // same schema the API route resolves wire input against.
+  const jobsForm = useForm<DraftForm>({
+    resolver: zodResolver(backfillScheduleFormSchema),
+    defaultValues: { ...DEFAULT_FORM, timeLocal: '03:00' },
+    mode: 'onChange',
   });
+  const linesForm = useForm<DraftForm>({
+    resolver: zodResolver(backfillScheduleFormSchema),
+    defaultValues: { ...DEFAULT_FORM, timeLocal: '03:30' },
+    mode: 'onChange',
+  });
+  const forms: Record<Source, UseFormReturn<DraftForm>> = {
+    rooflink_jobs: jobsForm,
+    rooflink_lineitems: linesForm,
+  };
   const [pendingAction, setPendingAction] = useState<Record<Source, string | null>>({
     rooflink_jobs: null,
     rooflink_lineitems: null,
@@ -299,14 +288,11 @@ export function DataSyncSection() {
       setMostRecentRun(latestAny);
 
       // For cadences that have a schedule, prefer the server values over
-      // the local form defaults.
-      setForms((prev) => {
-        const next = { ...prev };
-        for (const s of ['rooflink_jobs', 'rooflink_lineitems'] as Source[]) {
-          if (sch[s]) next[s] = formFromSchedule(sch[s]!);
-        }
-        return next;
-      });
+      // the local form defaults. form.reset(...) marks the form clean — so
+      // form.formState.isDirty correctly reads false until the user edits.
+      for (const s of ['rooflink_jobs', 'rooflink_lineitems'] as Source[]) {
+        if (sch[s]) forms[s].reset(formFromSchedule(sch[s]!));
+      }
     } catch {
       /* network blip — leave UI on previous values */
     } finally {
@@ -461,26 +447,28 @@ export function DataSyncSection() {
 
   async function saveSchedule(source: Source) {
     const form = forms[source];
-    if (!recipientsValid(form.recipients)) {
+    // Trigger validation so the form's error state is current. If invalid,
+    // bail with a toast — the inline FormMessage error is already visible.
+    const valid = await form.trigger();
+    if (!valid) {
       toast.error(`Couldn't save the ${sourceLabel(source)} schedule`, {
-        description: 'Add at least one valid recipient for sync notifications.',
+        description: 'Fix the highlighted fields and try again.',
       });
       return;
     }
+    const values = form.getValues();
     setPendingAction((p) => ({ ...p, [source]: 'save' }));
     try {
       const res = await fetch(`/api/backfills/${source}/schedule`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          cadence: form.cadence,
-          dayOfWeek: form.cadence === 'weekly' ? Number(form.dayOfWeek) : null,
-          dayOfMonth: form.cadence === 'monthly' ? form.dayOfMonth : null,
-          timeLocal: form.timeLocal,
-          timezone,
-          recipients: form.recipients,
-          enabled: schedules[source]?.enabled ?? true,
-        }),
+        body: JSON.stringify(
+          toBackfillScheduleWireBody({
+            form: values,
+            timezone,
+            enabled: schedules[source]?.enabled ?? true,
+          }),
+        ),
       });
       const json = await res.json();
       if (!res.ok) {
@@ -490,6 +478,8 @@ export function DataSyncSection() {
         return;
       }
       setSchedules((s) => ({ ...s, [source]: json.schedule }));
+      // Re-baseline the form so isDirty flips back to false post-save.
+      form.reset(values);
       toast.success(`${sourceLabel(source)} schedule saved`);
     } catch (e) {
       toast.error(`Couldn't save the ${sourceLabel(source)} schedule`, {
@@ -571,7 +561,8 @@ export function DataSyncSection() {
 
   async function runNow(source: Source) {
     const form = forms[source];
-    if (!recipientsValid(form.recipients)) {
+    const recipients = form.getValues('recipients');
+    if (recipients.length === 0) {
       toast.error(`Couldn't start ${sourceLabel(source)} sync`, {
         description:
           'Add at least one notification recipient first — sync emails need somewhere to go.',
@@ -659,9 +650,6 @@ export function DataSyncSection() {
             form={forms[source]}
             timezone={timezone}
             pendingAction={pendingAction[source]}
-            onFormChange={(patch) =>
-              setForms((f) => ({ ...f, [source]: { ...f[source], ...patch } }))
-            }
             onSave={() => saveSchedule(source)}
             onToggleEnabled={(v) => toggleEnabled(source, v)}
             onRemove={() => removeSchedule(source)}
@@ -685,7 +673,6 @@ function BackfillCard({
   form,
   timezone,
   pendingAction,
-  onFormChange,
   onSave,
   onToggleEnabled,
   onRemove,
@@ -697,21 +684,27 @@ function BackfillCard({
   activeRun: BackfillRun | null;
   lastCompletedRun: BackfillRun | null;
   mostRecentRun: BackfillRun | null;
-  form: DraftForm;
+  form: UseFormReturn<DraftForm>;
   timezone: string;
   pendingAction: string | null;
-  onFormChange: (patch: Partial<DraftForm>) => void;
   onSave: () => void;
   onToggleEnabled: (v: boolean) => void;
   onRemove: () => void;
   onRunNow: () => void;
   onCancel: () => void;
 }) {
+  // Subscribe to live form values for the conditional cadence rendering and
+  // the recipient chip input. RHF guarantees these re-render the card when
+  // the values change. form.formState.isDirty drives the "dirty" indicator
+  // below.
+  const values = form.watch();
   const meta = SOURCE_META[source];
   const tzLabel = tzAbbreviation(timezone);
   const isRunning = !!activeRun && activeRun.status === 'running';
   const isPaused = !!schedule && !schedule.enabled;
-  const dirty = schedule ? isDirty(form, schedule) : true;
+  // When there's no server schedule yet, the form is always "dirty" relative
+  // to a non-existent baseline. With a schedule, RHF tracks dirtiness.
+  const dirty = schedule ? form.formState.isDirty : true;
 
   // Status pill
   let statusLabel = 'Not scheduled';
@@ -738,10 +731,10 @@ function BackfillCard({
       : null;
 
   const dimBody = isPaused ? 'opacity-60' : '';
-  const recipientsOk = recipientsValid(form.recipients);
+  const recipientsOk = values.recipients.length > 0;
   const saveDisabled =
     pendingAction !== null ||
-    !recipientsOk ||
+    !form.formState.isValid ||
     (schedule !== null && !dirty);
 
   return (
@@ -847,14 +840,20 @@ function BackfillCard({
           </div>
         ) : null}
 
-        {/* Cadence editor */}
+        {/* Cadence editor. Values come from form.watch() above; field changes
+            go through form.setValue with shouldDirty + shouldValidate so the
+            Save button reflects the latest validity. */}
         <div className={`space-y-5 transition-opacity ${dimBody}`}>
           <div className="border-border bg-bg-base/40 grid grid-cols-1 gap-4 rounded-2xl border p-4 md:grid-cols-3">
             <Field label="Cadence">
               <Select
-                value={form.cadence}
+                value={values.cadence}
                 onValueChange={(v) =>
-                  onFormChange({ cadence: v as 'daily' | 'weekly' | 'monthly' })
+                  form.setValue(
+                    'cadence',
+                    v as 'daily' | 'weekly' | 'monthly',
+                    { shouldDirty: true, shouldValidate: true },
+                  )
                 }
               >
                 <SelectTrigger aria-label="Cadence">
@@ -869,11 +868,16 @@ function BackfillCard({
                 </SelectContent>
               </Select>
             </Field>
-            {form.cadence === 'weekly' ? (
+            {values.cadence === 'weekly' ? (
               <Field label="Day of week">
                 <Select
-                  value={form.dayOfWeek}
-                  onValueChange={(v) => onFormChange({ dayOfWeek: v })}
+                  value={values.dayOfWeek}
+                  onValueChange={(v) =>
+                    form.setValue('dayOfWeek', v, {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    })
+                  }
                 >
                   <SelectTrigger aria-label="Day of week">
                     <SelectValue />
@@ -887,11 +891,16 @@ function BackfillCard({
                   </SelectContent>
                 </Select>
               </Field>
-            ) : form.cadence === 'monthly' ? (
+            ) : values.cadence === 'monthly' ? (
               <Field label="Day of month">
                 <Select
-                  value={form.dayOfMonth}
-                  onValueChange={(v) => onFormChange({ dayOfMonth: v })}
+                  value={values.dayOfMonth}
+                  onValueChange={(v) =>
+                    form.setValue('dayOfMonth', v, {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    })
+                  }
                 >
                   <SelectTrigger aria-label="Day of month">
                     <SelectValue />
@@ -914,8 +923,13 @@ function BackfillCard({
             )}
             <Field label="Time (local)">
               <TimePicker
-                value={form.timeLocal}
-                onChange={(v) => onFormChange({ timeLocal: v })}
+                value={values.timeLocal}
+                onChange={(v) =>
+                  form.setValue('timeLocal', v, {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                  })
+                }
                 ariaLabel={`Time for ${meta.title}`}
               />
             </Field>
@@ -934,12 +948,26 @@ function BackfillCard({
               Sync completion and failure alerts go here — these emails get the PDF report when a run finishes.
             </p>
             <EmailChipInput
-              value={form.recipients}
-              onChange={(next) => onFormChange({ recipients: next })}
+              value={values.recipients}
+              onChange={(next) =>
+                form.setValue('recipients', next, {
+                  shouldDirty: true,
+                  shouldValidate: true,
+                })
+              }
               max={RECIPIENTS_CAP}
               placeholder="ops@yourcompany.com"
               ariaLabel={`Notification recipients for ${meta.title}`}
+              invalid={
+                !!form.formState.errors.recipients &&
+                values.recipients.length > 0
+              }
             />
+            {form.formState.errors.recipients ? (
+              <p className="text-heat-critical text-xs">
+                {form.formState.errors.recipients.message ?? 'Invalid recipients'}
+              </p>
+            ) : null}
           </div>
 
           {/* Next-run line (transient errors go to toasts now, not inline) */}
