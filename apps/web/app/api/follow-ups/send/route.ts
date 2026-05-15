@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { draftEmailSchema } from '@vera/types';
 import { sendEmail, isEmailConfigured } from '@/lib/email';
 import { withAuth } from '@/lib/auth-helpers';
 import { recordAudit } from '@/lib/audit';
@@ -13,25 +14,35 @@ import {
 export const runtime = 'nodejs';
 export const maxDuration = 30;
 
-const EmailListSchema = (max: number) =>
-  z
-    .array(z.string().email())
-    .max(max)
-    .transform((arr) =>
-      Array.from(new Set(arr.map((s) => s.trim().toLowerCase()))).filter(Boolean),
-    );
+/**
+ * Route schema = the shared client/server draft-email schema extended with
+ * the route's own metadata fields (`jobId`, `jobAddress`, `repName`). The
+ * shared schema (`draftEmailSchema` in @vera/types) is the source of truth
+ * for to/cc/subject/body constraints — both this route and the
+ * `DraftEmailButton` RHF form resolve against it, so they can never drift.
+ *
+ * Server-side hardening on top of the shared schema:
+ *   - normalize each recipient via trim + lowercase + dedupe (the chip input
+ *     already does this, but the server stays defensive).
+ */
+const normalizeEmailList = (arr: string[]) =>
+  Array.from(new Set(arr.map((s) => s.trim().toLowerCase()))).filter(Boolean);
 
-const RequestSchema = z.object({
-  jobId: z.union([z.number().int(), z.string().min(1)]),
-  jobAddress: z.string().min(1).max(200),
-  repName: z.string().min(1).max(120),
-  to: EmailListSchema(6).refine((arr) => arr.length >= 1, {
+const RequestSchema = draftEmailSchema
+  .extend({
+    jobId: z.union([z.number().int(), z.string().min(1)]),
+    jobAddress: z.string().min(1).max(200),
+    repName: z.string().min(1).max(120),
+  })
+  .transform((data) => ({
+    ...data,
+    to: normalizeEmailList(data.to),
+    cc: normalizeEmailList(data.cc),
+  }))
+  .refine((data) => data.to.length >= 1, {
     message: 'Add at least one recipient',
-  }),
-  cc: EmailListSchema(6).optional().default([]),
-  subject: z.string().min(1).max(200),
-  body: z.string().min(1).max(8000),
-});
+    path: ['to'],
+  });
 
 /**
  * Render the plain-text follow-up body into HTML that lives inside the
