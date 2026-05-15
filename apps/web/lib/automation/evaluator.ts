@@ -241,6 +241,12 @@ export async function evaluateRulesForTenant(args: {
   const firesByRule = new Map<number, RuleFire[]>();
   const skippedByRule = new Map<number, number>();
 
+  // Bump from Prisma's 5s default — at full daily-send-cap (default 25, but
+  // operators can raise to 500) plus 130 RuleEvaluationState upserts plus the
+  // per-rule audit row plus the lastEvaluatedAt updateMany, we're looking at
+  // up to ~280 sequential round-trips. Cloud SQL adds ~10-20ms each, which
+  // pushes total over 5s and trips the default. 30s matches the timeout the
+  // tick-worker uses for the same kind of bulk write.
   await db.$transaction(async (tx) => {
     // Upsert states. RuleEvaluationState has a unique (ruleId, jobId), so
     // upsert is idempotent.
@@ -367,7 +373,7 @@ export async function evaluateRulesForTenant(args: {
         },
       });
     }
-  });
+  }, { timeout: 30_000, maxWait: 5_000 });
 
   return {
     rulesEvaluated: ruleRows.length,
