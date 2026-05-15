@@ -7,3 +7,4 @@
 export * from './email';
 export * from './schedule';
 export * from './backfill-schedule';
+export * from './automation-rule';
