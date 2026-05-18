@@ -207,8 +207,10 @@ export const GeneratedDataSchema = z.object({
 export type GeneratedData = z.infer<typeof GeneratedDataSchema>;
 
 /* =============================================================================
- * Write-offs — one row per AR job with an Amount Withheld discount
- * (Rooflink product_id 71493). Produced by scripts/fetch-write-offs.ts.
+ * Write-offs — one row per estimate with an Amount Withheld discount
+ * (Rooflink product_id 71493). Built at request time by
+ * apps/web/lib/write-offs-data.ts from the promoted RawRooflinkJob +
+ * RawRooflinkLineItems rows.
  * =========================================================================== */
 
 const WriteOffLineItemsSchema = z

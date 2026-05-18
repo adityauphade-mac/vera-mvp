@@ -5,11 +5,9 @@ import type { RoofLinkJob, WriteOffRecord } from '@vera/types';
  * Write-off detection — extract an Amount Withheld discount from a Rooflink
  * line-items payload, if present, and project it into a `WriteOffRecord`.
  *
- * Single source of truth for both surfaces:
- *   1. `scripts/fetch-write-offs.ts` — seed-time fetcher that walks the AR set
- *      one estimate at a time over the Rooflink REST API.
- *   2. `apps/web/lib/write-offs-data.ts` — request-time DB reader that joins
- *      `RawRooflinkLineItems` against the AR working set.
+ * Used by `apps/web/lib/write-offs-data.ts` (request-time DB reader that
+ * joins `RawRooflinkLineItems` against the AR working set) and by the
+ * test-seed regenerator at `scripts/generate-vera-test-seed.ts`.
  *
  * The shape and field semantics here MUST stay in lockstep with the
  * `WriteOffRecord` type in `@vera/types`. If a field changes, update both.
