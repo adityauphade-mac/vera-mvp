@@ -12,8 +12,8 @@
     "build": "pnpm preprocess && turbo run build",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
-    "test:e2e": "pnpm preprocess && pnpm --filter @vera/web build && playwright test",
-    "test:e2e:ui": "pnpm preprocess && pnpm --filter @vera/web build && playwright test --ui",
+    "test:e2e": "./scripts/test-e2e.sh",
+    "test:e2e:ui": "./scripts/test-e2e.sh --ui",
     "format": "prettier --write \"**/*.{ts,tsx,md,json}\"",
     "prepare": "husky"
   },

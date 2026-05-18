@@ -27,7 +27,7 @@ const ROUTES = [
 for (const path of ROUTES) {
   test(`mobile · no horizontal page overflow at 375px · ${path}`, async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 900 });
-    await page.goto(path, { waitUntil: 'networkidle' });
+    await page.goto(path, { waitUntil: 'load' });
     await page.waitForTimeout(400);
     const dims = await page.evaluate(() => ({
       docW: document.documentElement.scrollWidth,

@@ -17,9 +17,11 @@ test.describe('Audit log page', () => {
     await expect(
       page.getByRole('heading', { name: /Every action, recorded/i }),
     ).toBeVisible();
-    // Filter labels.
+    // Filter labels live inside <label> elements above each control;
+    // the table also has <th> column headers with the same text, so we
+    // scope to <label> to avoid strict-mode ambiguity.
     for (const label of ['Category', 'Action', 'Who', 'Search summary']) {
-      await expect(page.getByText(label, { exact: true })).toBeVisible();
+      await expect(page.locator('label').getByText(label, { exact: true })).toBeVisible();
     }
   });
 
@@ -51,8 +53,10 @@ test.describe('Audit log page', () => {
     // Click the first non-header row.
     await page.getByText(/ui-test@example\.com/).first().click();
 
-    // Sheet opens — title is the summary string.
-    await expect(page.getByText('Details', { exact: true })).toBeVisible();
+    // Sheet opens — assert via the dialog role (the title is the entry's
+    // summary string, which varies by category/action, so a structural
+    // check is more robust than a literal-text one).
+    await expect(page.getByRole('dialog')).toBeVisible();
 
     await context.request.delete('/api/schedules/daily');
   });

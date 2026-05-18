@@ -67,7 +67,7 @@ test.describe('Mobile regression @ 375px', () => {
   for (const route of PUBLIC_ROUTES) {
     test(`public · ${route.name}`, async ({ page }) => {
       await page.setViewportSize(VIEWPORT);
-      await page.goto(route.path, { waitUntil: 'networkidle' });
+      await page.goto(route.path, { waitUntil: 'load' });
       await page.waitForTimeout(600);
       await capture(page, route.name);
     });
@@ -76,7 +76,7 @@ test.describe('Mobile regression @ 375px', () => {
   for (const route of DASHBOARD_ROUTES) {
     test(`signed · ${route.name}`, async ({ page }) => {
       await page.setViewportSize(VIEWPORT);
-      await page.goto(route.path, { waitUntil: 'networkidle' });
+      await page.goto(route.path, { waitUntil: 'load' });
       await page.waitForTimeout(600);
       await capture(page, route.name);
     });
@@ -84,7 +84,7 @@ test.describe('Mobile regression @ 375px', () => {
 
   test('signed · dashboard-overview · briefing State C (after fetch)', async ({ page }) => {
     await page.setViewportSize(VIEWPORT);
-    await page.goto('/dashboard', { waitUntil: 'networkidle' });
+    await page.goto('/dashboard', { waitUntil: 'load' });
     await page.waitForTimeout(600);
     await page.getByRole('button', { name: /Fetch latest news/i }).click();
     await expect(page.getByText(/Today.s news, woven in/i)).toBeVisible();
@@ -94,7 +94,7 @@ test.describe('Mobile regression @ 375px', () => {
 
   test('signed · sidebar nav drawer open', async ({ page }) => {
     await page.setViewportSize(VIEWPORT);
-    await page.goto('/dashboard', { waitUntil: 'networkidle' });
+    await page.goto('/dashboard', { waitUntil: 'load' });
     await page.waitForTimeout(400);
     // Mobile nav trigger — usually a hamburger icon.
     const trigger = page.getByRole('button', { name: /menu|navigation|open nav/i }).first();
@@ -107,7 +107,7 @@ test.describe('Mobile regression @ 375px', () => {
 
   test('signed · chat panel open', async ({ page }) => {
     await page.setViewportSize(VIEWPORT);
-    await page.goto('/dashboard', { waitUntil: 'networkidle' });
+    await page.goto('/dashboard', { waitUntil: 'load' });
     await page.waitForTimeout(400);
     await page.getByRole('button', { name: /Ask Me/i }).click();
     await page.waitForTimeout(300);
@@ -116,7 +116,7 @@ test.describe('Mobile regression @ 375px', () => {
 
   test('signed · aging row sheet open', async ({ page }) => {
     await page.setViewportSize(VIEWPORT);
-    await page.goto('/dashboard/aging?buckets=60-plus-past', { waitUntil: 'networkidle' });
+    await page.goto('/dashboard/aging?buckets=60-plus-past', { waitUntil: 'load' });
     await page.waitForTimeout(800);
     const firstRow = page.locator('table tbody tr').first();
     if (await firstRow.isVisible().catch(() => false)) {

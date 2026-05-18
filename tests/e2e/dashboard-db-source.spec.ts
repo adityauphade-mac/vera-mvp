@@ -101,12 +101,23 @@ test.describe('Dashboard DB-source path', () => {
        VALUES ($1, $2, $3, NOW())`,
       [String(FIXTURE_JOB_ID), runId, fixturePayload()],
     );
+
+    // The dashboard's read path (`getLiveARJobsWithContext`) goes through
+    // the `LiveJob` materialized view, not `RawRooflinkJob` directly. The
+    // view doesn't auto-refresh on INSERT; the tick worker calls REFRESH
+    // after each successful promote in production. We replicate that here
+    // so the fixture row becomes visible to the API under test.
+    await client.query(`REFRESH MATERIALIZED VIEW "LiveJob"`);
   });
 
   test.afterAll(async () => {
     if (!client) return;
     await client.query(`DELETE FROM "RawRooflinkJob" WHERE "dataVersion" = $1`, [runId]);
     await client.query(`DELETE FROM "BackfillRun" WHERE id = $1`, [runId]);
+    // Refresh again so the fixture row drops out of LiveJob before the
+    // next spec run. CONCURRENTLY is unnecessary here — no parallel
+    // readers contending for the view inside the test process.
+    await client.query(`REFRESH MATERIALIZED VIEW "LiveJob"`);
     await client.end();
   });
 
