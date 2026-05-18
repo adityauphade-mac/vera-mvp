@@ -2,15 +2,14 @@
 #
 # scripts/setup-worktree.sh
 # Bootstrap a fresh git worktree with the gitignored-but-required files
-# it needs to actually run: env vars, the raw data export, and the
-# preprocessed data artifact. Then install deps and regen Prisma.
+# it needs to actually run. Then install deps and regen Prisma.
 #
 # Why this exists: a fresh `git worktree add` only checks out tracked
-# files. The MVP needs `apps/web/.env.local` (gitignored), the 187 MB
-# `data/jobs_dedup.jsonl` (gitignored), and `data/generated.json`
-# (gitignored) — without these, `pnpm dev` fails immediately and so do
-# any preprocess / typecheck commands that touch those paths. Doing it
-# by hand is error-prone and we've already lost time to it twice.
+# files. The MVP needs `apps/web/.env.local` (gitignored), and the
+# 196 MB `data/jobs_dedup.jsonl` (gitignored, only used by the local
+# cold-start helper at `scripts/load-jsonl-into-local.mjs`) — without
+# these, env-dependent commands fail. Doing it by hand is error-prone
+# and we've lost time to it before.
 #
 # Usage:
 #   scripts/setup-worktree.sh <worktree-path>
@@ -119,7 +118,8 @@ echo ""
 echo "→ Copying gitignored files"
 sync_env_local    "$MAIN_REPO/apps/web/.env.local"   "$TARGET/apps/web/.env.local"
 copy_if_missing   "$MAIN_REPO/data/jobs_dedup.jsonl" "$TARGET/data/jobs_dedup.jsonl"
-copy_if_missing   "$MAIN_REPO/data/generated.json"   "$TARGET/data/generated.json"
+# Note: `data/generated.json` was retired in the JSON-removal change. The
+# app no longer reads bundled JSON — see docs/JSON_REMOVAL_PLAN.md.
 
 echo ""
 echo "→ Installing dependencies (pnpm install)"

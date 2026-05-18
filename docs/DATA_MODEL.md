@@ -395,92 +395,54 @@ view rebuilds from `RawRooflinkJob`.
 
 ---
 
-## Read path: JSON vs DB
+## Read path: DB-only
 
-The dashboard has **two data paths**, gated by a single environment flag
-(`USE_DB_DATA_SOURCE`). The flag flips between the build-time JSON snapshot
-and the live DB read; both paths return the same `GeneratedData` /
-`WriteOffsFile` shape so consumers don't care which one is active.
-
-**The short version:** the dispatcher checks one env flag and picks **one of
-two completely independent pipelines**. The JSON path reads a file. The DB
-path reads Postgres directly — `generated.json` is never touched on the DB
-path.
+The dashboard reads from Postgres directly at request time. A JSON-snapshot
+fallback path existed until 2026-05-18 (gated by a now-removed
+`USE_DB_DATA_SOURCE` flag) and is gone — see
+[`JSON_REMOVAL_PLAN.md`](JSON_REMOVAL_PLAN.md). Routes call
+`getData(tenantId)` / `getWriteOffs(tenantId)` and receive a fully-shaped
+`GeneratedData` / `WriteOffsFile` object.
 
 ```mermaid
 flowchart TD
     Browser["Browser hits /dashboard/aging"]
     Route["API route handler<br/>e.g. /api/jobs/aging"]
-    Dispatcher{"USE_DB_DATA_SOURCE?"}
+    SQL["SQL SELECT against LiveJob materialized view<br/>(deduped, indexed columns, no JSONB on the read path)<br/>+ RawRooflinkLineItems for write-offs join"]
+    Transform["Run @vera/domain transform<br/>(heat, aging, anomalies)"]
+    Response["Return JSON shape to the browser"]
 
-    subgraph JSONPath ["JSON path (flag = 0, default today)"]
-        direction TB
-        JsonFile["Read apps/web/data/generated.json<br/>(static file bundled at build time)"]
-    end
+    Browser --> Route --> SQL --> Transform --> Response
 
-    subgraph DBPath ["DB path (flag = 1)"]
-        direction TB
-        SQL["SQL SELECT against LiveJob materialized view<br/>(deduped, indexed columns, no JSONB on the read path)<br/>+ RawRooflinkLineItems for write-offs join"]
-        Transform["Run @vera/domain transform<br/>(heat, aging, anomalies)"]
-        SQL --> Transform
-    end
-
-    Response["Return same JSON shape to the browser"]
-
-    Browser --> Route --> Dispatcher
-    Dispatcher -->|flag = 0| JSONPath
-    Dispatcher -->|flag = 1| DBPath
-    JSONPath --> Response
-    DBPath --> Response
-
-    classDef json fill:#fef3c7,stroke:#d97706,color:#000
     classDef db fill:#dbeafe,stroke:#2563eb,color:#000
-    class JsonFile json
     class SQL,Transform db
 ```
 
-### What's actually happening on each path
-
-**JSON path** — one step:
-
-1. Open the `generated.json` file that's bundled into the Next.js build.
-   That's it. The file was produced ahead of time by `pnpm preprocess`
-   reading the 188 MB `data/jobs_dedup.jsonl` export.
-
-**DB path** — two steps, fully independent of the JSON file:
+### What's happening on each request
 
 1. Run `SELECT ... FROM "LiveJob" WHERE "tenantId" = $1 AND <ar-filter>`
    in Postgres. `LiveJob` is the materialized view documented above —
    one deduplicated row per (tenant, rooflinkId) with the AR/write-offs
    filter fields extracted as indexed columns. The query is a partial-index
-   lookup (~1 ms), no JSONB parsing on the hot path. **No JSON file is read.**
+   lookup (~1 ms), no JSONB parsing on the hot path.
 2. Run those rows through the `@vera/domain` functions
-   (`toARJob`, `repRollups`, heat / aging / anomaly scoring) — the exact
-   same TypeScript functions `scripts/preprocess.ts` runs at build time
-   when producing `generated.json`. The `payload` JSONB column on `LiveJob`
-   carries the raw object through so the domain functions still see the
-   full Rooflink shape they expect.
+   (`toARJob`, `repRollups`, heat / aging / anomaly scoring). The
+   `payload` JSONB column on `LiveJob` carries the raw object through so
+   the domain functions see the full Rooflink shape they expect.
 
 The reason the second step exists is that the DB stores raw Rooflink
-data, not dashboard-shaped data. The transform is what converts one into
-the other. Because both paths use the same transform code, the response
-the browser sees is byte-for-byte equivalent (modulo `now`).
+data, not dashboard-shaped data. The transform converts one into the other.
 
-> The bottom box in the old diagram was labeled "GeneratedData /
-> WriteOffsFile" — that's the **TypeScript type name** of the JSON shape
-> the API returns, not the `generated.json` file. The naming is
-> historical and unhelpful; we may rename it later.
+### Two dispatcher files
 
-### Two dispatcher files, one flag
-
-| Dispatcher | Consumers | JSON source | DB source |
-|---|---|---|---|
-| [apps/web/lib/data.ts](../apps/web/lib/data.ts) | `/api/jobs/aging`, `/api/jobs/milestones`, `/api/jobs/follow-ups`, `/api/jobs/reconciliation`, `/api/reps/outstanding` | `apps/web/data/generated.json` | `LiveJob` (materialized view over `RawRooflinkJob`) |
-| [apps/web/lib/write-offs-data.ts](../apps/web/lib/write-offs-data.ts) | `/api/jobs/write-offs` and the write-offs server page | `apps/web/data/write-offs.json` | `LiveJob` × `RawRooflinkLineItems` |
+| Dispatcher | Consumers | DB source |
+|---|---|---|
+| [apps/web/lib/data.ts](../apps/web/lib/data.ts) | `/api/jobs/aging`, `/api/jobs/milestones`, `/api/jobs/follow-ups`, `/api/jobs/reconciliation`, `/api/reps/outstanding` | `LiveJob` (materialized view over `RawRooflinkJob`) |
+| [apps/web/lib/write-offs-data.ts](../apps/web/lib/write-offs-data.ts) | `/api/jobs/write-offs` and the write-offs server page | `LiveJob` × `RawRooflinkLineItems` |
 
 Both export a `getData(tenantId)` / `getWriteOffs(tenantId)` function plus a
 `*ForCurrentSession()` server-component variant that pulls `tenantId` from
-the NextAuth session. Routes never read `generated.json` directly.
+the NextAuth session.
 
 ### How the DB path knows which rows are "live"
 
@@ -532,27 +494,24 @@ result. The backfill tick worker calls `invalidateDataSnapshot(tenantId)`
 and `invalidateWriteOffsSnapshot(tenantId)` immediately after a successful
 promote so the next request recomputes from fresh DB rows.
 
-### Cutover status
+### Cutover history
 
-| Surface | JSON path | DB path | Default |
-|---|---|---|---|
-| Local dev | works | works (validated May 13) | `USE_DB_DATA_SOURCE=0`; flip to `1` to test |
-| Production | works | not yet flipped | `USE_DB_DATA_SOURCE=0` |
-
-The JSON path and the flag are scheduled for removal in a follow-up once
-prod has been on the DB path long enough to trust it. See
-[docs/DATA_SOURCE_MIGRATION.md](DATA_SOURCE_MIGRATION.md) for the cutover
-plan and [docs/PHASE_A_LOCAL_CUTOVER_PLAN.md](PHASE_A_LOCAL_CUTOVER_PLAN.md)
-for the local execution log.
+DB-only since 2026-05-18. The previous JSON-snapshot fallback path and
+the `USE_DB_DATA_SOURCE` env flag were retired in the JSON-removal change
+(see [`JSON_REMOVAL_PLAN.md`](JSON_REMOVAL_PLAN.md)). For the original
+cutover narrative see
+[`_history/DATA_SOURCE_MIGRATION.md`](_history/DATA_SOURCE_MIGRATION.md)
+and [`_history/PHASE_A_LOCAL_CUTOVER_PLAN.md`](_history/PHASE_A_LOCAL_CUTOVER_PLAN.md).
 
 ---
 
 ## Derived metrics — computed at runtime, not stored
 
 Vera's interesting numbers (heat score, aging bucket, anomalies, "fell
-through cracks") are not in the DB. They're derived from raw job data
-in `data/generated.json` (which itself is the preprocessed snapshot of
-RoofLink's export at `data/jobs_dedup.jsonl`).
+through cracks") are not in the DB. They're derived at request time
+from `RawRooflinkJob` payloads (joined through `LiveJob`), passed into
+the `@vera/domain` transforms (`toARJob`, `repRollups`, heat / aging /
+anomaly scoring).
 
 All derivation lives in `shared/domain/*` — pure functions, no I/O,
 testable.
@@ -640,9 +599,11 @@ Per `CLAUDE.md` and the SPEC: Vera never writes back to RoofLink. All
 "edits" are draft emails the rep sends manually. The Rooflink API access
 the backfill pipeline uses is **read-only**.
 
-The legacy snapshot `data/jobs_dedup.jsonl` is also read-only — that file
-predates the backfill pipeline and is the input to `pnpm preprocess`. It
-will be retired once the DB path is the default in production.
+The legacy snapshot `data/jobs_dedup.jsonl` is also read-only and now
+purely a developer convenience: gitignored, vercelignored, useful for
+cold-starting a fresh local Postgres via
+`scripts/load-jsonl-into-local.mjs`. Nothing on a deployed Vercel
+function ever reads it.
 
 Two kinds of state live in our Postgres:
 
@@ -660,8 +621,7 @@ Two kinds of state live in our Postgres:
 
 | Source | Refresh cadence | How |
 |---|---|---|
-| `data/generated.json` (JSON path) | Manual | Run `pnpm preprocess` from the repo root, commit the regenerated file. Used only when `USE_DB_DATA_SOURCE=0`. |
-| `RawRooflinkJob` / `RawRooflinkLineItems` (DB path) | Whatever `BackfillSchedule` says, plus ad-hoc "Run now" | The tick worker writes raw rows, marks the run `promoted=true`, refreshes the `LiveJob` materialized view (`REFRESH MATERIALIZED VIEW CONCURRENTLY`), and invalidates the in-process snapshot cache. Used when `USE_DB_DATA_SOURCE=1`. Empty incrementals (`itemsProcessed=0`) short-circuit and skip the promote/refresh entirely. |
+| `RawRooflinkJob` / `RawRooflinkLineItems` | Whatever `BackfillSchedule` says, plus ad-hoc "Run now" | The tick worker writes raw rows, marks the run `promoted=true`, refreshes the `LiveJob` materialized view (`REFRESH MATERIALIZED VIEW CONCURRENTLY`), and invalidates the in-process snapshot cache. Empty incrementals (`itemsProcessed=0`) short-circuit and skip the promote/refresh entirely. |
 | `Briefing` (AI dashboard briefing) | Daily, weekdays at 7am Central via the `generate-briefings` Upstash QStash schedule | OR on-demand via the "Fetch latest news" button |
 | `Schedule.nextRunAt` | After each fire, advanced via `computeNextRun` | The dispatcher claims a row by atomically advancing this field |
 | `BackfillSchedule.nextRunAt` | After each run, same shape as `Schedule.nextRunAt` | See [docs/BACKFILL_SCHEDULING.md](BACKFILL_SCHEDULING.md) for the dispatcher details |

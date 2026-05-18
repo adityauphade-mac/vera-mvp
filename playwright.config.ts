@@ -1,6 +1,12 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const PORT = 3000;
+// PORT comes from the env so the test suite can listen on a different
+// port than a developer's `pnpm dev` server. Conventional split:
+//   - dev server: 3000 (the `pnpm dev` default)
+//   - test server: 3001 (set by `scripts/test-e2e.sh`)
+// Setting PORT here also propagates to the spawned `next start` child
+// because Playwright's webServer command inherits process.env.
+const PORT = parseInt(process.env.PORT ?? '3000', 10);
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? `http://localhost:${PORT}`;
 
 export default defineConfig({

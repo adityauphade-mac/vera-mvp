@@ -36,6 +36,21 @@ manual deploy after every merge to `main`.
 
 Reverse-chronological. Each entry describes the user-visible behavior change.
 
+### 2026-05-18 — JSON read path removed; tests run against `vera_test`
+
+**Pending deploy.** Branch `feat/json-removal`; merges as one PR with multiple commits, ships with a single `vercel --prod --yes`. No user-visible behavior change — same dashboard, same numbers — but the architecture under it collapses from "two paths gated by a flag" to one. Carried out per [`JSON_REMOVAL_PLAN.md`](JSON_REMOVAL_PLAN.md).
+
+What changed:
+- The build-time JSON snapshot path (read from `apps/web/data/generated.json` and `write-offs.json`) is gone. Both `lib/data.ts` and `lib/write-offs-data.ts` read from Postgres directly. The `USE_DB_DATA_SOURCE` env flag will be removed from Vercel + `.env.prod` after the deploy lands.
+- The JSON files themselves are deleted. `apps/web/data/generated.json` was byte-identical to the Playwright fixture; `write-offs.json` moved to `tests/fixtures/write-offs.fixture.json` (used only by the test-seed regenerator).
+- The backfill `loadEstimatesFromJsonl()` fallback at [`apps/web/lib/backfill/rooflink.ts`](../apps/web/lib/backfill/rooflink.ts) is gone. Without a promoted `rooflink_jobs` run, lineitems syncs now throw a clear error instead of falling back to a 196 MB local file that's gitignored + vercelignored anyway.
+- Scripts cleanup: deleted `preprocess.ts`, `fetch-write-offs.ts`, `verify-data.ts`, `test-cheap-sql.mjs`, `test-cheap-sql-local-pg.mjs`, `test-cheap-sql-via-jsonl.mjs`. `package.json` no longer chains a `preprocess` step into `build`.
+- Test scaffolding: Playwright now runs against a dedicated **`vera_test`** Postgres DB seeded from `tests/fixtures/vera_test.sql` (1 MB, checked in, regenerable). `globalSetup` enforces a strict DB-name guard — refuses to wipe anything but `vera_test` on `localhost`, no override flag. Test runner pins port 3001 so `pnpm dev` on 3000 can coexist.
+
+Test suite result: 149 passed, 1 skipped, 0 failures across the chain. Verified end-to-end against the local stack pulling real Rooflink data into `vera_test` post-watermark-fix — produced the same dashboard numbers prod currently shows (371 write-offs / $2.25M), confirming the local path mirrors prod exactly.
+
+Rollback: `git revert` the merge commit. The JSON files and the dispatcher come back together; nothing in the DB changes. Re-adding `USE_DB_DATA_SOURCE=1` to Vercel after the revert is a no-op since the revert restores both paths and the flag.
+
 ### 2026-05-18 — Write-offs mock-data incident (no-deploy recovery)
 
 **Recovered.** Production env edit + targeted SQL on `vera_prod`. No code deploy, no migration. Reported by Israil — `/dashboard/write-offs` showed `$0 / 0 jobs` against `2208 jobs scanned` from Saturday afternoon through Monday morning IST.

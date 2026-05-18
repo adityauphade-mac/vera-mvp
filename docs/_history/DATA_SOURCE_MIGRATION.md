@@ -1,5 +1,12 @@
 # Data Source Migration — `generated.json` → Neon DB
 
+> **Retired 2026-05-18.** The JSON read path was removed entirely (see
+> [`../JSON_REMOVAL_PLAN.md`](../JSON_REMOVAL_PLAN.md)). The Neon target
+> was also superseded by GCP Cloud SQL (see
+> [`../GCP_MIGRATION.md`](../GCP_MIGRATION.md)). Kept for historical
+> context only — none of the env flags or fallback paths described
+> below exist in the live codebase.
+
 **Status:** Pre-work. Nothing in this doc has been implemented; this is the brief for the cutover.
 
 **Audience:** Anyone (human or Claude) about to touch the dashboard read path or the backfill pipeline.

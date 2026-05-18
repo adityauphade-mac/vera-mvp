@@ -1,6 +1,6 @@
-# Massive raw RoofLink export — only needed locally for `pnpm preprocess`.
-# The slim apps/web/data/generated.json (~150 KB) is committed and used at
-# build time on Vercel.
+# Local-only raw RoofLink export. Never used at build or runtime on
+# Vercel — the dashboard reads from Postgres directly. Excluding it so
+# `vercel --prod` doesn't upload the 196 MB file from a stray local copy.
 data/jobs_dedup.jsonl
 data/generated.json
 
@@ -11,8 +11,11 @@ node_modules
 dist
 out
 
-# Tests + dev artifacts
+# Tests + dev artifacts. tests/fixtures/* (including the checked-in
+# vera_test.sql seed and *.fixture.json files) are local-only — they
+# never get bundled with the deployed app.
 tests/e2e/audit-screens
+tests/fixtures
 playwright-report
 test-results
 coverage

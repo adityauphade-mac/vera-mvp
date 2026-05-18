@@ -1,5 +1,10 @@
 # Phase A — close out the DB-source cutover on local
 
+> **Retired 2026-05-18.** The `USE_DB_DATA_SOURCE` flag this plan was
+> structured around is gone; the DB read path is the only path. Kept
+> for historical context. See
+> [`../JSON_REMOVAL_PLAN.md`](../JSON_REMOVAL_PLAN.md).
+
 **Goal:** prove the full DB-source cutover (`USE_DB_DATA_SOURCE=1`) works end-to-end against real data, on local Postgres, without touching Neon.
 
 **Status when this plan starts (now):**

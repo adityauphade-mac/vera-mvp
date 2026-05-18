@@ -166,19 +166,13 @@ required after every merge to `main` until that's resolved.
 
 Expected duration: ~90 seconds end-to-end.
 
-### Roll back the DB read path
+### Rolling back the read path
 
-If the DB-backed dashboard ever misbehaves and you need to fall back to the
-build-time JSON snapshot (which still exists in the deploy artifact):
-
-```bash
-vercel env rm USE_DB_DATA_SOURCE production -y
-echo "0" | vercel env add USE_DB_DATA_SOURCE production
-vercel --prod --yes
-```
-
-Total time: ~60 seconds. Dashboards revert to the JSON snapshot. Auth +
-audit writes still go to the DB; only the read path flips.
+There is no JSON fallback anymore — the dashboard reads directly from
+Postgres. If reads ever start returning wrong data the rollback is a
+deployment-level revert (`vercel rollback`, below) plus, if needed,
+swapping the promoted snapshot at the DB level (see "Re-promote a
+previous backfill snapshot" later in this doc).
 
 ### Roll back a bad deploy
 
@@ -343,11 +337,12 @@ Quick checklist:
    instances need a request before they warm up. Hit the dashboard once;
    subsequent requests should be fast.
 
-4. **Is `USE_DB_DATA_SOURCE` actually `1`?**
+4. **Is the right `BackfillRun` promoted?**
    ```bash
-   vercel env ls production | grep USE_DB
+   psql "$DATABASE_URL" -c "SELECT id, source, mode, \"itemsProcessed\", \"startedAt\" FROM \"BackfillRun\" WHERE promoted=true ORDER BY source, id DESC;"
    ```
-   If `0`, you're on the JSON snapshot path which is frozen at `May 5, 2026`.
+   If a recent full sync demoted a healthy snapshot in favor of a tiny
+   one, that's the 2026-05-18 mock-data incident pattern (see RELEASE.md).
 
 ### Common Vercel deploy failures
 

@@ -1,7 +1,4 @@
 import 'server-only';
-import { createReadStream, existsSync } from 'node:fs';
-import { createInterface } from 'node:readline';
-import { resolve } from 'node:path';
 import type { BackfillSource } from './sources';
 import { db } from '@/lib/db';
 
@@ -206,28 +203,25 @@ async function fetchLineItemsBatch(
 }
 
 /**
- * Load the list of estimate ids to walk for lineitems. Two sources, in order:
- *
- *   1. The most recent promoted+completed RawRooflinkJob version. This is
- *      the steady-state path once `rooflink_jobs` has been backfilled into
- *      the DB.
- *   2. Fallback to streaming `data/jobs_dedup.jsonl` — the existing 187MB
- *      file from the Python backfill. This unblocks lineitems testing
- *      before the (slow, WAF-throttled) DB rebuild finishes.
+ * Load the list of estimate ids to walk for lineitems, sourced from the
+ * latest promoted+completed RawRooflinkJob version.
  *
  * When `since` is set, the result is filtered down to estimates whose
- * `primary_estimate.date_last_edited` is newer than the watermark.
+ * parent job's `date_last_edited` is newer than the watermark.
  *
- * The JSONL parse is cached at module scope (full id list — filtering is
- * applied each call). 187MB only gets read once per Node process.
- * Hot-reloads of this module clear the cache.
+ * Throws if no promoted rooflink_jobs version exists — the operator must
+ * complete a jobs backfill before lineitems can run. (Previously there
+ * was a JSONL fallback path that read `data/jobs_dedup.jsonl` from disk;
+ * it was removed in the JSON-removal change because production has had
+ * a promoted jobs version since 2026-05-13 and the file is gitignored +
+ * vercelignored, so the fallback never fires in any live environment.
+ * See docs/JSON_REMOVAL_PLAN.md.)
  */
 interface CachedEstimate {
   id: string;
   /** ISO 8601 string, or null if the source record had no edit timestamp. */
   dateLastEdited: string | null;
 }
-let cachedJsonlEstimates: CachedEstimate[] | null = null;
 
 async function loadEstimateIds(since: Date | null): Promise<string[]> {
   const all = await loadEstimatesWithTimestamps();
@@ -242,85 +236,41 @@ async function loadEstimateIds(since: Date | null): Promise<string[]> {
 }
 
 async function loadEstimatesWithTimestamps(): Promise<CachedEstimate[]> {
-  // Path 1 — DB-backed promoted version.
   const latest = await db.backfillRun.findFirst({
     where: { source: 'rooflink_jobs', promoted: true, status: 'completed' },
     orderBy: { id: 'desc' },
   });
-  if (latest) {
-    // Server-side extraction via Postgres JSON operators. Pulls just the two
-    // fields we need (estimate id, date_last_edited) and filters out rows
-    // with no primary_estimate — all before any data leaves the database.
-    //
-    // The previous implementation called `findMany({ select: { payload } })`
-    // which pulled all ~104k full job payloads (~5 GB) across the network on
-    // every invocation, then discarded ~99% of the data in JS. This burned
-    // Neon's data-transfer quota in hours. See
-    // docs/UNDERSTANDING_THE_BACKFILL.md for the full breakdown.
-    const rows = await db.$queryRaw<
-      Array<{ id: string; date_last_edited: string | null }>
-    >`
-      SELECT
-        payload->'primary_estimate'->>'id'   AS id,
-        payload->>'date_last_edited'         AS date_last_edited
-      FROM "RawRooflinkJob"
-      WHERE "dataVersion" = ${latest.id}
-        AND payload->'primary_estimate'->>'id' IS NOT NULL
-    `;
-    if (rows.length > 0) {
-      return rows.map((r) => ({
-        id: r.id,
-        dateLastEdited: r.date_last_edited,
-      }));
-    }
-  }
-
-  // Path 2 — JSONL fallback.
-  return loadEstimatesFromJsonl();
-}
-
-async function loadEstimatesFromJsonl(): Promise<CachedEstimate[]> {
-  if (cachedJsonlEstimates) return cachedJsonlEstimates;
-  const jsonlPath = resolve(process.cwd(), '../../data/jobs_dedup.jsonl');
-  if (!existsSync(jsonlPath)) {
+  if (!latest) {
     throw new Error(
-      `rooflink_lineitems: no promoted RawRooflinkJob version found, and the ` +
-        `fallback file ${jsonlPath} does not exist. Either complete a ` +
-        `rooflink_jobs backfill first, or run scripts/setup-worktree.sh to ` +
-        `copy data/jobs_dedup.jsonl into this worktree.`,
+      'rooflink_lineitems: no promoted RawRooflinkJob version found. ' +
+        'Run a rooflink_jobs full backfill first so this source can ' +
+        'iterate its estimate ids.',
     );
   }
-  // eslint-disable-next-line no-console
-  console.log(
-    `[backfill] loading estimate ids from ${jsonlPath} (no promoted DB version yet)`,
-  );
-  const out: CachedEstimate[] = [];
-  const stream = createReadStream(jsonlPath);
-  const rl = createInterface({ input: stream, crlfDelay: Infinity });
-  for await (const line of rl) {
-    if (!line) continue;
-    try {
-      const obj = JSON.parse(line) as {
-        date_last_edited?: string | null;
-        primary_estimate?: { id: number | string } | null;
-      };
-      const eid = obj.primary_estimate?.id;
-      if (eid != null) {
-        // Filter on the JOB's date_last_edited — the JSONL's
-        // primary_estimate object doesn't carry that field.
-        out.push({
-          id: String(eid),
-          dateLastEdited: obj.date_last_edited ?? null,
-        });
-      }
-    } catch {
-      /* skip malformed lines */
-    }
-  }
-  cachedJsonlEstimates = out;
-  // eslint-disable-next-line no-console
-  console.log(`[backfill] loaded ${out.length.toLocaleString()} estimate ids from JSONL`);
-  return out;
+
+  // Server-side extraction via Postgres JSON operators. Pulls just the two
+  // fields we need (estimate id, date_last_edited) and filters out rows
+  // with no primary_estimate — all before any data leaves the database.
+  //
+  // The previous implementation called `findMany({ select: { payload } })`
+  // which pulled all ~104k full job payloads (~5 GB) across the network on
+  // every invocation, then discarded ~99% of the data in JS. This burned
+  // Neon's data-transfer quota in hours. See
+  // docs/UNDERSTANDING_THE_BACKFILL.md for the full breakdown.
+  const rows = await db.$queryRaw<
+    Array<{ id: string; date_last_edited: string | null }>
+  >`
+    SELECT
+      payload->'primary_estimate'->>'id'   AS id,
+      payload->>'date_last_edited'         AS date_last_edited
+    FROM "RawRooflinkJob"
+    WHERE "dataVersion" = ${latest.id}
+      AND payload->'primary_estimate'->>'id' IS NOT NULL
+  `;
+  return rows.map((r) => ({
+    id: r.id,
+    dateLastEdited: r.date_last_edited,
+  }));
 }
 
 async function fetchMock(

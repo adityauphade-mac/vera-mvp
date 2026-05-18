@@ -12,7 +12,7 @@ This file is the source of truth for how code is written in this repository. Eve
 
 **You are read-only on Rooflink.** Rooflink is the system of record. Vera fetches via their REST API, writes raw payloads to our Postgres, and never writes back. The legacy `data/jobs_dedup.jsonl` export is also read-only and predates the live backfill pipeline (now dormant).
 
-**Production runs on the DB read path** (`USE_DB_DATA_SOURCE=1` on Vercel) against GCP Cloud SQL `vera_prod`. The bundled JSON snapshots in `apps/web/data/` are dormant fallback artifacts kept for emergency rollback only.
+**Production reads from the DB** at GCP Cloud SQL `vera_prod`. There is no JSON fallback path — `apps/web/data/` was retired in the JSON-removal change (see `docs/JSON_REMOVAL_PLAN.md`). The dashboard's hot read goes through the `LiveJob` materialized view, refreshed by the backfill tick worker after each non-empty `rooflink_jobs` promote.
 
 ---
 
@@ -377,7 +377,9 @@ Every route under `/dashboard/*` and `/` has at least one spec at `tests/e2e/<mo
 
 ### Fixture
 
-A deterministic snapshot of `generated.json` lives at `tests/fixtures/generated.fixture.json`. Tests load the app pointing at this fixture (via env var or a test mode). This means tests don't depend on the real preprocess output.
+The Playwright suite runs against a dedicated **`vera_test`** Postgres DB on `localhost`. Each suite run wipes + reloads `tests/fixtures/vera_test.sql` (checked in, regenerable via `pnpm exec tsx scripts/generate-vera-test-seed.ts`) and refreshes the `LiveJob` materialized view, so every spec starts from identical seeded state. The Playwright `globalSetup` hard-refuses to wipe anything except `vera_test` on `localhost` — no override flag. Provision the DB once via `scripts/setup-vera-test.sh`.
+
+The test runner (`scripts/test-e2e.sh`, invoked by `pnpm test:e2e`) pins `DATABASE_URL` to the test DB and listens on port 3001, so a `pnpm dev` server at port 3000 can coexist on the same machine.
 
 ### AI in tests
 

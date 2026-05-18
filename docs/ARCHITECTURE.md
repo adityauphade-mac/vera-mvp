@@ -239,10 +239,12 @@ code paths used by both the legacy `scripts/preprocess.ts` (built-time
 JSON generation, now dormant) and the live DB path. Same input → same
 output regardless of which side you ran it from.
 
-The legacy `data/jobs_dedup.jsonl` (188 MB) and `apps/web/data/*.json`
-snapshots remain in the repo as dormant fallbacks. They're read only when
-`USE_DB_DATA_SOURCE=0` (emergency rollback only); production is on the
-DB path.
+The legacy `data/jobs_dedup.jsonl` (196 MB) is kept on developer
+machines only — gitignored, vercelignored, useful for cold-starting a
+fresh local Postgres via `scripts/load-jsonl-into-local.mjs`. The
+in-app JSON snapshot path was retired in the 2026-05-18 JSON-removal
+change (see `JSON_REMOVAL_PLAN.md`); production reads exclusively from
+Postgres.
 
 ---
 

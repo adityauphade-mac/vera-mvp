@@ -1,5 +1,5 @@
 import { expect, test, type APIResponse } from '@playwright/test';
-import { signInAs } from './_helpers/auth';
+import { DEFAULT_TEST_USER, signInAs } from './_helpers/auth';
 
 /**
  * Contract coverage for /api/audit-logs.
@@ -88,7 +88,7 @@ test.describe('/api/audit-logs', () => {
     );
     expect(created.entityType).toBe('Schedule');
     expect(created.entityId).toMatch(/^\d+$/);
-    expect(created.userEmail).toBe('developer@levich.co');
+    expect(created.userEmail).toBe(DEFAULT_TEST_USER.email);
 
     await context.close();
   });

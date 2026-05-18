@@ -17,7 +17,7 @@ of velocity is visible at a glance.
 
 | Done | Why it matters |
 |---|---|
-| **DB read path is live** (`USE_DB_DATA_SOURCE=1`). Every dashboard reads from the GCP `vera_prod` Postgres at request time, not the build-time JSON snapshot. | Dashboard numbers now reflect the latest promoted backfill, no deploy required. |
+| **DB-only read path.** Every dashboard reads from the GCP `vera_prod` Postgres at request time. The legacy JSON snapshot path was retired in the 2026-05-18 JSON-removal change. | Dashboard numbers reflect the latest promoted backfill with no deploy required, and there's a single path to maintain instead of two. |
 | **Push filter + aggregation into Postgres** (`getLiveARJobsWithContext`, `getLiveJobsForWriteOffs`). | Cold-request transfer dropped from 200 MB to 650 KB (~320×). The earlier cutover attempt failed because Vercel functions timed out shipping 200 MB on every cold start. |
 | **Post-sync PDF email on backfill completion.** | Operators see *which* records flowed through a sync, not just the count. Attached to the existing sync-complete email. |
 | **Skeleton loaders for every dashboard route.** | No more "Not scheduled" flashes on first load. |
@@ -67,21 +67,17 @@ first scheduled run will correctly pick incremental mode.
 
 **Effort:** ~10 min via UI. No code changes.
 
-### JSON-path cleanup (do not delete until DB-path is stable for ~1 week)
+### JSON-path cleanup — DONE (2026-05-18)
 
-**Why:** `apps/web/data/generated.json`, `apps/web/data/write-offs.json`, and
-the JSON-path code in `lib/data.ts` / `lib/write-offs-data.ts` are now
-dormant. Carrying them adds confusion ("which path is live?") and they bloat
-the deploy artifact.
-
-**Scope:**
-- Delete the two JSON files.
-- Remove the `USE_DB_DATA_SOURCE` flag and the JSON-path branches from both dispatchers.
-- Drop the now-unused `scripts/preprocess.ts` and `scripts/regen-write-offs-from-db.ts` (or move to `scripts/_history/`).
-
-**Effort:** ~30 min, one focused PR.
-**Blocker:** confidence that DB path is stable. Suggest waiting at least one
-week post-cutover and one full backfill cycle.
+Closed by the JSON-removal PR. The two JSON snapshot files were
+deleted, the `USE_DB_DATA_SOURCE` flag is gone, the dispatcher in
+`lib/data.ts` / `lib/write-offs-data.ts` collapsed to DB-only, the
+backfill JSONL fallback was removed, and the obsolete scripts
+(`preprocess.ts`, `fetch-write-offs.ts`, `verify-data.ts`, the
+`test-cheap-sql-*.mjs` trio) were deleted. See
+[`JSON_REMOVAL_PLAN.md`](JSON_REMOVAL_PLAN.md) for the original plan
+and the `2026-05-18` entry in [`RELEASE.md`](RELEASE.md) for the
+deploy record.
 
 ---
 

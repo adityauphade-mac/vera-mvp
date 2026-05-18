@@ -1,5 +1,12 @@
 # GCP database migration runbook
 
+> **Historical record (executed 2026-05-14).** Vera is on GCP Cloud SQL
+> in production. References to the `USE_DB_DATA_SOURCE` flag in this
+> runbook describe how the cutover was gated at the time; that flag
+> was removed on 2026-05-18 (see
+> [`JSON_REMOVAL_PLAN.md`](JSON_REMOVAL_PLAN.md)). The DB read path is
+> now the only path.
+
 Moving Vera's production database from Neon to a new GCP Cloud SQL Postgres
 instance, without re-running the multi-hour Rooflink backfill against
 production.

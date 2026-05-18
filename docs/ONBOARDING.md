@@ -89,7 +89,6 @@ want.
 |---|---|
 | `DATABASE_URL` | **Local**: `postgresql://<your-user>@localhost:5432/vera_dev` |
 | `DATABASE_URL_UNPOOLED` | Same value as `DATABASE_URL` |
-| `USE_DB_DATA_SOURCE` | `1` (read from local DB) — flip to `0` to use the bundled JSON snapshot fallback |
 | `AUTH_SECRET` + `NEXTAUTH_SECRET` | Generate fresh: `openssl rand -hex 32`. Use the same value for both. |
 | `NEXTAUTH_URL` | `http://localhost:3000` |
 | `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` | GCP project → Credentials. See `../GCP_OAUTH_SETUP.md`. |
@@ -100,19 +99,17 @@ want.
 | `QSTASH_CURRENT_SIGNING_KEY` + `QSTASH_NEXT_SIGNING_KEY` | Upstash QStash dashboard |
 | `RL_KEY` | Rooflink API token — ask Israel |
 
-**`.env.development.local` for the DB cutover.** Next.js loads
+**`.env.development.local` for splitting DB config.** Next.js loads
 `.env.development.local` BEFORE `.env.local` during `pnpm dev`, so you
-can split DB config there:
+can keep a dev-only `DATABASE_URL` separate from your main env file
+without losing your other secrets:
 
 ```bash
 # apps/web/.env.development.local
 DATABASE_URL=postgresql://<your-user>@localhost:5432/vera_dev
-USE_DB_DATA_SOURCE=1
 ```
 
-This file is also gitignored. Keeping it separate from `.env.local` makes
-it easy to toggle between local DB and a remote DB without losing your
-other env values.
+This file is gitignored.
 
 ---
 
@@ -229,8 +226,8 @@ In the browser:
 |---|---|
 | `Module '@prisma/client' has no exported member 'PrismaClient'` | Run `pnpm --filter @vera/web exec prisma generate`. The `build` script does this automatically; dev mode doesn't always. |
 | Sign-in redirects to a Google error page | Add the local redirect URI in GCP (step 7). |
-| Dashboard 200s but shows zero rows | Either you haven't seeded the DB (step 5 is optional) or `USE_DB_DATA_SOURCE` is unset and there's no JSON snapshot. Check the `BackfillRun` table for `promoted=true` rows. |
+| Dashboard 200s but shows zero rows | You haven't seeded the DB yet, or no `BackfillRun` is `promoted=true`. Run the backfill (`/dashboard/scheduler` → Run now) or load a SQL snapshot. |
 | `/api/jobs/aging` returns 500 with timeouts | DB connection issue. Verify `DATABASE_URL` resolves and `psql "$DATABASE_URL"` works. |
-| Playwright suite fails on global-setup with "refusing to DELETE" | Your local DB has production-shape data. Use a separate test DB (`createdb vera_test`) and point Playwright at it: `DATABASE_URL=postgresql://<user>@localhost/vera_test pnpm exec playwright test` |
+| Playwright suite fails on global-setup with "refusing to wipe" | The suite is allowed to wipe `vera_test` only — see `scripts/setup-vera-test.sh` and the `tests/e2e/_helpers/global-setup.ts` guard. Run `pnpm test:e2e` (the wrapper sets `DATABASE_URL=postgresql://<user>@localhost/vera_test` for you). |
 | Build fails with `Edge Function size 1.02 MB > 1 MB` | Something pulled Prisma into middleware. Verify `apps/web/middleware.ts` only imports from `@/lib/auth.config`, never `@/lib/auth`. |
 | Worktrees keep failing | Worktrees need their own `.env.local` etc. — use `scripts/setup-worktree.sh <path>` to bootstrap one correctly. |

@@ -2,13 +2,11 @@
  * Regenerate apps/web/data/write-offs.json from the local Postgres
  * (`vera_dev`), this time WITHOUT the AR working-set filter.
  *
- * Background: the original `scripts/fetch-write-offs.ts` and the DB-path in
- * `lib/write-offs-data.ts` both filter candidates to `isInARWorkingSet`
- * before projecting. Per the 2026-05-13 conversation with Israel, that
- * filter is too narrow — it hides paid-off jobs and not-yet-completed
- * jobs whose estimates carry an Amount Withheld discount. This script
- * surfaces ANY job (with a primary_estimate.id) whose line-items payload
- * has an Amount Withheld line.
+ * Background: per the 2026-05-13 conversation with Israel, the original
+ * AR-working-set filter was too narrow — it hid paid-off jobs and
+ * not-yet-completed jobs whose estimates carry an Amount Withheld
+ * discount. This script surfaces ANY job (with a primary_estimate.id)
+ * whose line-items payload has an Amount Withheld line.
  *
  * Reads:
  *   - RawRooflinkJob       (latest promoted run, expected: #131)

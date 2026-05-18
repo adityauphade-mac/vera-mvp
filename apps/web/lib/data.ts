@@ -6,42 +6,27 @@ import {
   type RoofLinkJob,
 } from '@vera/types';
 import { repRollups, toARJob } from '@vera/domain';
-import generatedJson from '@/data/generated.json';
 import { getLiveARJobsWithContext, promotedVersionIds } from './backfill/merge-view';
 import { auth } from './auth';
 
 /**
- * Source-of-truth for the metrics dashboard. Two paths:
+ * Source-of-truth for the metrics dashboard.
  *
- *   - **JSON path** (default) — parse the build-time `generated.json` snapshot.
- *     Same behavior the dashboard has shipped with since day one. Tenant-
- *     agnostic; the snapshot represents the single demo tenant.
+ * Reads the latest promoted rooflink_jobs snapshot from Postgres for
+ * `tenantId` via `getLiveARJobsWithContext`, runs the same domain
+ * transform the original preprocess pipeline used (`toARJob`), and
+ * returns the same `GeneratedData` shape the UI has consumed since
+ * day one. Result is cached per-(tenantId, promoted-run-ids) so any
+ * promote (full or incremental) naturally invalidates the slot.
  *
- *   - **DB path** (`USE_DB_DATA_SOURCE=1`) — read the latest promoted
- *     RawRooflinkJob rows for `tenantId` via `getLiveJobs`, run the same
- *     domain transform the preprocess uses (`toARJob`), and return the same
- *     `GeneratedData` shape. Cached per-`(tenantId, promotedRunIds)` so a
- *     promote bust naturally invalidates the cache.
- *
- * Routes call `await getData(tenantId)`. The dispatcher picks the path.
- * Once the cutover is verified in prod, the JSON path and the flag will be
- * removed in a follow-up.
+ * History: until 2026-05-18 there was a parallel JSON path that read a
+ * build-time `apps/web/data/generated.json` snapshot, gated by
+ * `USE_DB_DATA_SOURCE`. The flag is gone and the DB path is the only
+ * read path now. See docs/JSON_REMOVAL_PLAN.md for the removal arc.
  */
 
 // ---------------------------------------------------------------------------
-// JSON path — unchanged behavior; the snapshot is bundled at build time.
-// ---------------------------------------------------------------------------
-
-let jsonCache: GeneratedData | null = null;
-
-function getDataFromJson(): GeneratedData {
-  if (jsonCache) return jsonCache;
-  jsonCache = GeneratedDataSchema.parse(generatedJson);
-  return jsonCache;
-}
-
-// ---------------------------------------------------------------------------
-// DB path — request-time read with per-(tenant, promoted-run-ids) cache.
+// DB read — request-time, per-(tenant, promoted-run-ids) cache.
 // ---------------------------------------------------------------------------
 
 interface DbCacheSlot {
@@ -114,25 +99,20 @@ async function getDataFromDb(tenantId: number): Promise<GeneratedData> {
 }
 
 /**
- * Drop any cached DB snapshot for a tenant. Called by the backfill tick
+ * Drop any cached snapshot for a tenant. Called by the backfill tick
  * worker right after a successful promote so the next request recomputes
- * from fresh DB rows. No-op for the JSON path.
+ * from fresh DB rows.
  */
 export function invalidateDataSnapshot(tenantId: number): void {
   dbCache.delete(tenantId);
 }
 
 // ---------------------------------------------------------------------------
-// Dispatcher — every route calls `await getData(tenantId)`.
+// Public entry points.
 // ---------------------------------------------------------------------------
 
-function isDbPathEnabled(): boolean {
-  return process.env.USE_DB_DATA_SOURCE === '1';
-}
-
 export async function getData(tenantId: number): Promise<GeneratedData> {
-  if (isDbPathEnabled()) return getDataFromDb(tenantId);
-  return getDataFromJson();
+  return getDataFromDb(tenantId);
 }
 
 /**

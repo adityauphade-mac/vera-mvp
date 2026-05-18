@@ -13,9 +13,11 @@ out
 /data
 data/jobs_dedup.jsonl
 data/generated.json
-# apps/web/data/generated.json is COMMITTED — Vercel reads it directly during
-# build instead of running the 188 MB preprocess step. Re-run `pnpm preprocess`
-# locally and commit the updated JSON when the source data changes.
+# `apps/web/data/` was deleted in the JSON-removal change (see
+# docs/JSON_REMOVAL_PLAN.md). The dashboard now reads from Postgres only;
+# the bundled JSON snapshots that lived there have been retired. The seed
+# data used by the Playwright suite lives at tests/fixtures/*.json and is
+# checked in.
 
 # env
 .env

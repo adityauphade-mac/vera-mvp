@@ -96,7 +96,6 @@ These must be set in **Vercel → Project → Settings → Environment Variables
 |---|---|
 | `DATABASE_URL` | `postgresql://vera_app:<pwd>@34.56.121.151:5432/vera_prod?sslmode=require` |
 | `DATABASE_URL_UNPOOLED` | Same value (Cloud SQL has no pooler). Kept for compat with any code that reads it. |
-| `USE_DB_DATA_SOURCE` | `1` — flip to `0` to roll back to the JSON snapshot path (emergency only). |
 | `AUTH_SECRET` / `NEXTAUTH_SECRET` | Same value; rotated together. |
 | `NEXTAUTH_URL` | `https://vera-mvp.vercel.app` |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Created in GCP project — see [`../GCP_OAUTH_SETUP.md`](../GCP_OAUTH_SETUP.md) |
@@ -151,9 +150,9 @@ hit Vercel's 100 MB upload limit before).
 # Code-only deploy (after merging to main)
 vercel --prod --yes
 
-# Env var change + redeploy (e.g. flipping a flag)
-vercel env rm USE_DB_DATA_SOURCE production -y
-echo "1" | vercel env add USE_DB_DATA_SOURCE production
+# Env var change + redeploy (rotating a secret, etc.)
+vercel env rm <NAME> production -y
+echo "<value>" | vercel env add <NAME> production
 vercel --prod --yes
 ```
 
@@ -164,7 +163,7 @@ vercel --prod --yes
 | Build fails: `Cannot find module @vera/ui` | Vercel project's Root Directory isn't `apps/web` | Settings → General → Root Directory = `apps/web` |
 | Build fails: `data/jobs_dedup.jsonl: ENOENT` | The legacy JSONL isn't committed; the build is reaching for it somewhere it shouldn't | Search for any newly-introduced read of `jobs_dedup.jsonl`; the runtime path should not touch it |
 | `/api/chat` returns 500 in production | `ANTHROPIC_API_KEY` not set | Add to Production env, redeploy |
-| Dashboard returns 500 after `USE_DB_DATA_SOURCE=1` flip | DB read path returning too much data (legacy 200 MB issue) OR vera_app role can't reach DB | Smoke-test the merge view query directly against the DB. Roll back the flag if needed (~30 s). |
+| Dashboard returns 500 right after a deploy | `vera_app` role can't reach the DB OR the `LiveJob` materialized view is missing/stale | Smoke-test the merge view query directly against the DB; refresh the view if needed (`REFRESH MATERIALIZED VIEW "LiveJob"`). |
 | Deploy times out building → "Out of memory" | Next.js 16 + Tailwind 4 hitting Vercel's default node memory | Set `NODE_OPTIONS=--max-old-space-size=4096` in env |
 | Vercel upload exceeds 100 MB | Trying to deploy from a worktree with cached `data/jobs_dedup.jsonl` | Deploy from canonical repo only; `.vercelignore` excludes `worktrees/` (already in place) |
 

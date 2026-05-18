@@ -7,7 +7,6 @@ import {
   type WriteOffsFile,
 } from '@vera/types';
 import { toWriteOffRecord } from '@vera/domain';
-import writeOffsJson from '@/data/write-offs.json';
 import {
   getLiveJobsForWriteOffs,
   getLiveLineItems,
@@ -16,26 +15,22 @@ import {
 import { auth } from './auth';
 
 /**
- * Source-of-truth for the Write-offs dashboard. Two paths, same shape as the
- * metrics dispatcher in `lib/data.ts`:
+ * Source-of-truth for the Write-offs dashboard.
  *
- *   - **JSON path** (default) — parse the build-time `write-offs.json`
- *     snapshot produced by `scripts/fetch-write-offs.ts`.
+ * Joins the latest promoted RawRooflinkJob rows against the promoted
+ * RawRooflinkLineItems rows for the same tenant, runs `toWriteOffRecord`
+ * from `@vera/domain` to keep detection logic in one place, drops records
+ * with an install date before `INSTALL_DATE_CUTOFF`, and aggregates totals
+ * at request time. Cached per `(tenantId, jobs-version, lineitems-version)`.
  *
- *   - **DB path** (`USE_DB_DATA_SOURCE=1`) — join the latest promoted
- *     RawRooflinkJob rows against the promoted RawRooflinkLineItems rows
- *     for the same tenant, run `toWriteOffRecord` from `@vera/domain` to
- *     keep detection logic in one place, drop records with an install date
- *     before `INSTALL_DATE_CUTOFF`, and aggregate totals at request time.
- *     Cached per `(tenantId, jobs-version, lineitems-version)`.
+ * Scope: `all-estimates` (no AR working-set filter), 2024-01-01
+ * install-date cutoff — per the May 13 product decision (see
+ * `docs/RELEASE.md` "2026-05-13 — Write-offs broadened").
  *
- *     Scope mirrors `scripts/regen-write-offs-from-db.ts` exactly so the
- *     numbers the dashboard shows match the build-time JSON snapshot
- *     (`apps/web/data/write-offs.json`) post-cutover: no AR working-set
- *     filter, 2024-01-01 install-date cutoff, scope = 'all-estimates'.
- *
- * Single feature flag (`USE_DB_DATA_SOURCE`) gates both this and the metrics
- * cutover so rollback is one toggle.
+ * History: until 2026-05-18 there was a parallel JSON path that parsed a
+ * build-time `apps/web/data/write-offs.json` snapshot, gated by
+ * `USE_DB_DATA_SOURCE`. The flag is gone and the DB path is the only
+ * read path now. See docs/JSON_REMOVAL_PLAN.md.
  */
 
 /**
@@ -43,25 +38,11 @@ import { auth } from './auth';
  * date. Historical pre-2024 write-offs are noise — the team only acts on
  * recent installs. Null install dates (jobs not yet completed) are also
  * excluded. Set to `null` to disable the filter.
- *
- * Must stay in sync with `scripts/regen-write-offs-from-db.ts`.
  */
 const INSTALL_DATE_CUTOFF: string | null = '2024-01-01';
 
 // ---------------------------------------------------------------------------
-// JSON path — unchanged behavior; the snapshot is bundled at build time.
-// ---------------------------------------------------------------------------
-
-let jsonCache: WriteOffsFile | null = null;
-
-function getWriteOffsFromJson(): WriteOffsFile {
-  if (jsonCache) return jsonCache;
-  jsonCache = WriteOffsFileSchema.parse(writeOffsJson);
-  return jsonCache;
-}
-
-// ---------------------------------------------------------------------------
-// DB path — request-time read with per-(tenant, versions) cache.
+// Request-time read, per-(tenant, jobs-version, lineitems-version) cache.
 // ---------------------------------------------------------------------------
 
 interface DbCacheSlot {
@@ -101,8 +82,7 @@ async function getWriteOffsFromDb(tenantId: number): Promise<WriteOffsFile> {
 
   // Project each (job, payload) pair into a WriteOffRecord. Scope is
   // all-estimates (no AR working-set filter); the install-date cutoff is
-  // applied in SQL (above) — mirrors scripts/regen-write-offs-from-db.ts so
-  // DB and JSON paths agree.
+  // applied in SQL (above).
   const records: WriteOffRecord[] = [];
   let candidatesFetched = 0;
   const fetchErrors = 0;
@@ -129,7 +109,7 @@ async function getWriteOffsFromDb(tenantId: number): Promise<WriteOffsFile> {
     const record = toWriteOffRecord(job, payload);
     if (!record) continue;
 
-    // Install-date cutoff is now enforced in SQL by getLiveJobsForWriteOffs.
+    // Install-date cutoff is enforced in SQL by getLiveJobsForWriteOffs.
     // No redundant TS filter here.
 
     records.push(record);
@@ -166,16 +146,11 @@ export function invalidateWriteOffsSnapshot(tenantId: number): void {
 }
 
 // ---------------------------------------------------------------------------
-// Dispatcher
+// Public entry points.
 // ---------------------------------------------------------------------------
 
-function isDbPathEnabled(): boolean {
-  return process.env.USE_DB_DATA_SOURCE === '1';
-}
-
 export async function getWriteOffs(tenantId: number): Promise<WriteOffsFile> {
-  if (isDbPathEnabled()) return getWriteOffsFromDb(tenantId);
-  return getWriteOffsFromJson();
+  return getWriteOffsFromDb(tenantId);
 }
 
 /**

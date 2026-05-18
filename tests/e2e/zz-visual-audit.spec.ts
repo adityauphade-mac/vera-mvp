@@ -25,7 +25,7 @@ test.describe.configure({ mode: 'serial' });
 for (const route of ROUTES) {
   test(`audit ${route.name}`, async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto(route.path, { waitUntil: 'networkidle' });
+    await page.goto(route.path, { waitUntil: 'load' });
     // Wait for entrance animations to finish (delays up to 240ms + 360ms duration).
     await page.waitForTimeout(800);
 
@@ -69,7 +69,7 @@ for (const route of ROUTES) {
 
 test('chat panel audit', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto('/dashboard', { waitUntil: 'networkidle' });
+  await page.goto('/dashboard', { waitUntil: 'load' });
 
   const trigger = page.getByRole('button', { name: /Ask Me/i });
   await trigger.click();
