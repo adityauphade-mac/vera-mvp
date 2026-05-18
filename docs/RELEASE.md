@@ -2,7 +2,7 @@
 
 What's been deployed to production, when, and what's pending.
 
-> Last updated: 2026-05-18 (JSON read path removed — deployed)
+> Last updated: 2026-05-18 (timezone leak fix — pending)
 
 ---
 
@@ -35,6 +35,36 @@ manual deploy after every merge to `main`.
 ## Release log
 
 Reverse-chronological. Each entry describes the user-visible behavior change.
+
+### 2026-05-18 — Timezone leak fix: dashboard dates in browser TZ, PDFs in tenant TZ
+
+**Pending.** Branch `fix/timezone-leaks`, commit `2350c13`. PR to be opened.
+
+Five surfaces were rendering dates in UTC instead of the viewer's local time. Server components were formatting with `toLocaleDateString` (Node runtime = UTC on Vercel) and email PDFs were stamping `now.toISOString().slice(0,10)` for filenames — every viewer saw the UTC date regardless of where they sat.
+
+What users will see change:
+- **Dashboard "As of" header** (top of every `/dashboard/*` page) — now formatted client-side in browser TZ. Crosses midnight correctly in different timezones. SSR briefly shows the YYYY-MM-DD fallback before hydration swaps in the formatted weekday (~50–100ms flash on initial load).
+- **Daily brief email subject + PDF header + filename** — now in the tenant's `briefingTimezone` (Chicago). Sending at 11pm Central no longer stamps the next UTC day.
+- **Sync summary email PDF header + "Installed" date column + filename** — same treatment.
+
+What's NOT changing:
+- Aging buckets, write-off totals, audit log entries, job tables — already correct (computed from date-only fields or rendered in client components without an explicit `timeZone`).
+- No DB migration. No schema change. Code-only.
+
+How it was done:
+- `apps/web/app/dashboard/_components/AsOfDate.tsx` — new client component for the header.
+- `apps/web/lib/daily-brief-pdf.tsx`, `apps/web/lib/sync-summary-pdf.tsx` — accept `timeZone` parameter; emails ship as finished artifacts so the TZ has to be embedded at render time.
+- `shared/domain/src/daily-brief.ts` — `buildDailyBrief` accepts optional `timeZone` (defaults to `America/Chicago`); the email subject and subtitle now read in that zone.
+- Callers (`apps/web/app/api/brief/send/route.ts`, `apps/web/lib/backfill/tick-worker.ts`, the on-demand sync-summary route, the email preview script) fetch `tenant.briefingTimezone` and pass it through.
+- Filenames use `Intl.DateTimeFormat('en-CA', {timeZone, …})` instead of `toISOString().slice(0,10)`.
+
+Test coverage:
+- New `tests/e2e/timezone-rendering.spec.ts` — 9 tests pinning the browser context to Pacific, Eastern, and Tokyo. The Tokyo cases cross the UTC date line, so any regression to server-side formatting (or a `formatUSDate`-style helper that goes through a server runtime) flips those assertions.
+- Full suite: 158 passed, 1 unrelated skip. Typecheck clean.
+
+Rollback: code-only, `git revert <merge-sha> && vercel --prod --yes`. No DB to undo.
+
+Already-queued briefs in Resend (with `scheduled_at` in the future) had their PDF rendered + attached at queue time, so they'll deliver the pre-fix format. Only briefs triggered after deploy get the new behavior.
 
 ### 2026-05-18 — JSON read path removed; tests run against `vera_test`
 
